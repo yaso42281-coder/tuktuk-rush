@@ -1,0 +1,3315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alexandria Tuktuk Rush - 3D Corniche Chaos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;800;900&family=Changa:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #020617;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .title-font {
+            font-family: 'Changa', sans-serif;
+        }
+        #game-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+        .alex-glass {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        }
+        .alex-card {
+            background: linear-gradient(145deg, rgba(254, 249, 195, 0.96), rgba(253, 224, 71, 0.94));
+            border: 3px solid #f59e0b;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 14px rgba(250, 204, 21, 0.6); }
+            50% { box-shadow: 0 0 28px rgba(250, 204, 21, 1); }
+        }
+        .fever-glow {
+            animation: pulseGlow 0.6s infinite;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.1);
+            border-radius: 99px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d97706;
+            border-radius: 99px;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden">
+
+    <!-- 3D WebGL Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Damage / Speed Vignette Flash -->
+    <div id="screen-flash" class="fixed inset-0 pointer-events-none z-10 opacity-0 transition-opacity duration-200"></div>
+
+    <!-- TOP HUD -->
+    <header id="hud-top" class="fixed top-0 left-0 right-0 z-20 p-2.5 sm:p-4 flex items-start justify-between gap-2 pointer-events-none">
+        <!-- Left Metrics -->
+        <div class="flex flex-wrap items-center gap-1.5 sm:gap-2.5 pointer-events-auto">
+            <div class="alex-glass rounded-2xl px-3 py-1.5 sm:px-4 sm:py-2 text-white">
+                <div class="text-[9px] uppercase tracking-wider text-sky-300 font-bold">Distance</div>
+                <div id="hud-distance" class="title-font text-base sm:text-xl leading-none">0 m</div>
+            </div>
+
+            <div class="alex-glass rounded-2xl px-3 py-1.5 sm:px-4 sm:py-2 text-white">
+                <div class="text-[9px] uppercase tracking-wider text-amber-300 font-bold">LE Cash</div>
+                <div class="title-font text-base sm:text-xl text-amber-300 leading-none"><span id="hud-coins">0</span> <span class="text-xs">LE</span></div>
+            </div>
+
+            <!-- Mobile Nitro Gauge -->
+            <div class="flex sm:hidden flex-col items-center gap-1 w-24 alex-glass rounded-2xl px-2.5 py-1.5">
+                <div class="w-full flex justify-between text-[9px] font-black text-sky-200 uppercase">
+                    <span>⚡ Nitro</span>
+                    <span id="nitro-pct-mobile">100%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="nitro-bar-mobile" class="h-full bg-gradient-to-r from-sky-400 via-cyan-300 to-amber-300 transition-all duration-75" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <!-- Heat Level -->
+            <div class="alex-glass rounded-2xl px-2.5 py-1.5 text-white flex flex-col justify-center">
+                <div id="hud-heat" class="text-[10px] sm:text-xs font-black text-rose-400 uppercase tracking-wider">🔥 HEAT 1★</div>
+            </div>
+
+            <!-- Checkpoint Timer Pill -->
+            <div id="hud-checkpoint-pill" class="alex-glass rounded-2xl px-2.5 py-1.5 text-white border border-emerald-400/50">
+                <div class="text-[8px] font-black uppercase text-emerald-300">🏁 Next Gate</div>
+                <div id="hud-checkpoint-timer" class="title-font text-sm sm:text-base text-white leading-none">14.0s</div>
+            </div>
+
+            <div id="combo-badge" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white rounded-full px-3 py-1 font-black text-xs shadow-lg border border-amber-200">
+                x2 COMBO
+            </div>
+        </div>
+
+        <!-- Center District & Mazaag Fever Bar -->
+        <div class="hidden lg:flex flex-col items-center gap-1.5">
+            <div class="alex-glass rounded-full px-4 py-1 text-xs font-black text-amber-300 tracking-wide">
+                📍 <span id="hud-district">Qaitbay &amp; Anfoushi</span> • <span id="hud-speed">55 km/h</span>
+            </div>
+            <div id="fever-container" class="w-60 h-3.5 alex-glass rounded-full p-0.5 overflow-hidden flex items-center">
+                <div id="fever-bar" class="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-cyan-400 rounded-full transition-all duration-150" style="width: 0%"></div>
+            </div>
+            <div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sky-200">
+                <span id="fever-label">🔥 Mazaag Fever Meter</span>
+                <span id="hud-mission" class="text-amber-300 bg-slate-900/80 px-2 py-0.5 rounded-full">🎯 Near-Miss 3 Cars (0/3)</span>
+            </div>
+        </div>
+
+        <!-- Right Quick Controls -->
+        <div class="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+            <!-- Weather / Time Cycle -->
+            <button id="btn-time" onclick="cycleTimeOfDay()" title="Cycle Time & Weather" class="alex-glass hover:bg-sky-800/80 text-white w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-lg sm:text-xl transition active:scale-95 cursor-pointer">
+                ☀️
+            </button>
+
+            <!-- Camera View Toggle -->
+            <button id="btn-cam" onclick="cycleCameraMode()" title="Switch Camera View (C)" class="alex-glass hover:bg-sky-800/80 text-white w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-lg sm:text-xl transition active:scale-95 cursor-pointer">
+                🎥
+            </button>
+
+            <!-- TukTuk Radio Station Toggle -->
+            <button id="btn-music" onclick="cycleRadioStation()" title="Switch TukTuk Radio Station (R)" class="alex-glass hover:bg-sky-800/80 text-white px-2.5 h-10 sm:h-11 rounded-2xl flex items-center justify-center gap-1 text-xs font-black transition active:scale-95 cursor-pointer">
+                <span class="text-base">📻</span>
+                <span id="radio-label" class="hidden md:inline text-amber-300">Mahraganat</span>
+            </button>
+
+            <!-- Sound Effects Mute Toggle -->
+            <button id="btn-mute" onclick="toggleMute()" title="Toggle Sound Effects" class="alex-glass hover:bg-sky-800/80 text-white w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-lg sm:text-xl transition active:scale-95 cursor-pointer">
+                🔊
+            </button>
+
+            <!-- Pause Button -->
+            <button id="btn-pause" onclick="togglePause()" title="Pause Game (P)" class="alex-glass hover:bg-sky-800/80 text-white w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-lg sm:text-xl transition active:scale-95 cursor-pointer">
+                ⏸️
+            </button>
+        </div>
+    </header>
+
+    <!-- DYNAMIC EVENT / PASSENGER / POWERUP STATUS PILLS -->
+    <div id="hud-alerts" class="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none w-full max-w-md px-3">
+        <!-- District / Event Banner -->
+        <div id="district-banner" class="hidden alex-glass border-amber-400/70 rounded-2xl px-4 py-2 text-center shadow-2xl">
+            <div id="district-banner-title" class="title-font text-sm sm:text-base text-amber-300 uppercase">DISTRICT</div>
+            <div id="district-banner-sub" class="text-[11px] text-white font-bold">Subtitle</div>
+        </div>
+
+        <!-- Active Event Progress Bar -->
+        <div id="event-hud" class="hidden w-full alex-glass border-cyan-400/70 rounded-2xl px-3.5 py-2">
+            <div class="flex justify-between items-center text-xs font-black text-white mb-1">
+                <span id="event-title">⚡ EVENT</span>
+                <span id="event-status" class="text-amber-300">ACTIVE</span>
+            </div>
+            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div id="event-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 to-amber-400 transition-all duration-100" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <!-- Passenger Fare Pill -->
+        <div id="passenger-hud" class="hidden alex-glass border-emerald-400/80 rounded-full px-4 py-1.5 text-xs font-black text-emerald-300 flex items-center gap-2">
+            <span>🙋‍♂️</span>
+            <span id="passenger-label">Passenger Onboard</span>
+            <span id="passenger-timer" class="bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full">18s</span>
+        </div>
+
+        <!-- Active Powerups Row -->
+        <div id="effects-pills" class="flex flex-wrap justify-center gap-1.5"></div>
+
+        <!-- Floating Toast Feed -->
+        <div id="toast-box" class="opacity-0 transition-opacity duration-200 alex-glass rounded-full px-4 py-1 text-xs sm:text-sm font-black text-amber-300 text-center">
+            Welcome to Alexandria!
+        </div>
+    </div>
+
+    <!-- BOTTOM ON-SCREEN ARCADE CONTROLS & NITRO BAR -->
+    <div id="hud-bottom" class="fixed bottom-3 left-3 right-3 z-20 flex items-end justify-between gap-2 pointer-events-none">
+        <!-- Left / Right Steering Buttons -->
+        <div class="flex items-end gap-2 pointer-events-auto">
+            <button id="ctrl-left" class="alex-glass active:bg-amber-400/80 active:text-slate-950 text-white w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 border-white/40 shadow-xl transition active:scale-95">
+                ◀
+            </button>
+            <button id="ctrl-right" class="alex-glass active:bg-amber-400/80 active:text-slate-950 text-white w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 border-white/40 shadow-xl transition active:scale-95">
+                ▶
+            </button>
+        </div>
+
+        <!-- Center Nitro Gauge -->
+        <div class="hidden sm:flex flex-col items-center gap-1 w-48 alex-glass rounded-2xl px-3 py-2">
+            <div class="w-full flex justify-between text-[10px] font-black text-sky-200 uppercase">
+                <span>⚡ Nitro Shai</span>
+                <span id="nitro-pct">100%</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                <div id="nitro-bar" class="h-full bg-gradient-to-r from-sky-400 via-cyan-300 to-amber-300 transition-all duration-75" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <!-- Drift/Brake, YOLO Boost, Horn & Nitro Boost -->
+        <div class="flex items-end gap-1.5 sm:gap-2 pointer-events-auto">
+            <button id="ctrl-brake" class="bg-rose-600/90 active:bg-rose-500 text-white w-13 h-13 sm:w-15 sm:h-15 p-2 rounded-2xl flex flex-col items-center justify-center shadow-xl border-2 border-white/80 active:scale-95 transition">
+                <span class="text-base">🛞</span>
+                <span class="text-[8px] font-black uppercase">Drift</span>
+            </button>
+            <button id="ctrl-yolo" class="bg-gradient-to-t from-red-700 via-orange-600 to-yellow-400 active:scale-95 text-slate-950 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center shadow-xl border-2 border-white transition">
+                <span class="text-lg">🚀</span>
+                <span class="text-[8px] font-black uppercase leading-none">YOLO</span>
+            </button>
+            <button id="ctrl-horn" onclick="triggerHorn()" class="relative bg-amber-400/95 active:bg-amber-300 text-amber-950 w-15 h-15 sm:w-18 sm:h-18 p-2 rounded-full flex flex-col items-center justify-center shadow-xl border-2 border-white active:scale-95 transition">
+                <span class="text-xl">📯</span>
+                <span class="text-[9px] font-black uppercase">Horn</span>
+                <span id="horn-cd-label" class="hidden text-[8px] font-mono font-black bg-slate-900/90 text-amber-300 px-1 rounded-full">3.0s</span>
+            </button>
+            <button id="ctrl-boost" class="bg-sky-500/95 active:bg-sky-400 text-white w-15 h-15 sm:w-18 sm:h-18 p-2 rounded-full flex flex-col items-center justify-center shadow-xl border-2 border-white active:scale-95 transition">
+                <span class="text-xl">⚡</span>
+                <span class="text-[9px] font-black uppercase">Nitro</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- START / MAIN MENU MODAL -->
+    <div id="start-modal" class="fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm">
+        <div class="alex-card rounded-3xl p-6 sm:p-8 max-w-md w-full text-center relative overflow-hidden">
+            <div class="inline-block bg-sky-900 text-amber-300 text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2">
+                🇪🇬 3D Mediterranean Chaos Edition
+            </div>
+            <h1 class="title-font text-3xl sm:text-4xl font-black text-slate-900 leading-tight">
+                ALEXANDRIA<br><span class="text-red-600">TUKTUK RUSH</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-700 font-bold mt-2">
+                Weave through Corniche traffic, dodge potholes &amp; puddles, outrun Kameen checkpoints, and deliver passengers!
+            </p>
+
+            <div class="grid grid-cols-2 gap-2.5 my-4">
+                <div class="bg-white/80 rounded-2xl p-2.5 border border-amber-400">
+                    <div class="text-[10px] font-black uppercase text-slate-500">Best Score</div>
+                    <div id="menu-highscore" class="title-font text-xl text-slate-900">0</div>
+                </div>
+                <div class="bg-white/80 rounded-2xl p-2.5 border border-amber-400">
+                    <div class="text-[10px] font-black uppercase text-slate-500">Bank Balance</div>
+                    <div id="menu-bank" class="title-font text-xl text-amber-700">0 LE</div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2.5">
+                <button onclick="startGame()" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white title-font text-xl tracking-wide shadow-xl border-2 border-white active:scale-95 transition cursor-pointer">
+                    🛺 YALLA! HIT THE CORNICHE
+                </button>
+                <button onclick="openGarage()" class="w-full py-3 rounded-2xl bg-sky-900 hover:bg-sky-800 text-amber-300 font-black text-sm tracking-wide shadow-lg border border-sky-700 active:scale-95 transition cursor-pointer">
+                    🔧 OSTA GARAGE, FLEET &amp; UPGRADES
+                </button>
+                <button onclick="openAdManager()" class="w-full py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-cyan-300 font-black text-xs tracking-wide shadow-lg border border-cyan-500/50 active:scale-95 transition cursor-pointer">
+                    🪧 MANAGE CORNICHE AD SIGNS (6 SPOTS)
+                </button>
+            </div>
+
+            <div class="mt-2.5 text-[11px] font-black text-indigo-900 bg-indigo-100/90 border border-indigo-300 rounded-xl py-1.5 px-3">
+                💬 Contact <span class="underline text-indigo-700">xelemon.</span> on Discord for buying ads
+            </div>
+
+            <!-- Non-Intrusive Main Menu Google Ad Banner -->
+            <div id="menu-google-ad-wrap" class="mt-3 pt-2.5 border-t border-amber-400/70">
+                <div class="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Advertisement</div>
+                <div class="bg-white/90 border border-slate-300 rounded-xl overflow-hidden flex items-center justify-center min-h-[56px] shadow-inner">
+                    <ins class="adsbygoogle"
+                         style="display:inline-block;width:320px;height:50px"
+                         data-ad-client="ca-pub-0000000000000000"
+                         data-ad-slot="1111111111"></ins>
+                    <div id="menu-ad-fallback" class="flex items-center justify-between w-full px-3 py-1.5 text-left">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-sky-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded">Ad</span>
+                            <div>
+                                <div class="text-[11px] font-black text-slate-900 leading-tight">Alexandria Corniche Guide &amp; Offers</div>
+                                <div class="text-[9px] text-slate-500 font-bold">Google Ads • Sponsored Partner</div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-black text-sky-700 bg-sky-100 px-2 py-0.5 rounded-lg">OPEN</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-2.5 text-[11px] text-slate-700 font-bold leading-relaxed">
+                ◀ ▶ / A D Steer • ▲ / W / Shift Nitro • ▼ / S Drift • SPACE Horn
+            </div>
+        </div>
+    </div>
+
+    <!-- PAUSE MODAL -->
+    <div id="pause-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+        <div class="alex-card rounded-3xl p-6 max-w-sm w-full text-center">
+            <h2 class="title-font text-3xl text-slate-900 mb-2">⏸️ SHAI BREAK</h2>
+            <p class="text-xs font-bold text-slate-700 mb-5">Take a sip of mint tea before diving back into Alexandria traffic.</p>
+            <div class="flex flex-col gap-2.5">
+                <button onclick="togglePause()" class="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base shadow-lg cursor-pointer">
+                    ▶️ RESUME DRIVING
+                </button>
+                <button onclick="returnToMenu()" class="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-black text-sm shadow-lg cursor-pointer">
+                    🏠 MAIN MENU
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameover-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+        <div class="alex-card rounded-3xl p-5 sm:p-6 max-w-md w-full text-center max-h-[94vh] overflow-y-auto">
+            <div id="new-record-badge" class="hidden inline-block bg-red-600 text-white text-xs font-black uppercase px-3 py-1 rounded-full mb-2 animate-bounce">
+                🏆 NEW CORNICHE RECORD!
+            </div>
+            <h2 class="title-font text-3xl sm:text-4xl text-slate-900">💥 YA SATER!</h2>
+            <p class="text-xs font-bold text-slate-700 mt-1">Your TukTuk bumper couldn't take any more Alexandria chaos!</p>
+
+            <div class="grid grid-cols-2 gap-2 my-3 text-left">
+                <div class="bg-white/85 rounded-2xl p-2.5 border border-amber-400">
+                    <div class="text-[10px] font-black uppercase text-slate-500">Final Score</div>
+                    <div id="over-score" class="title-font text-xl sm:text-2xl text-slate-900">0</div>
+                </div>
+                <div class="bg-white/85 rounded-2xl p-2.5 border border-amber-400">
+                    <div class="text-[10px] font-black uppercase text-slate-500">Distance</div>
+                    <div id="over-distance" class="title-font text-xl sm:text-2xl text-sky-800">0 m</div>
+                </div>
+                <div class="bg-white/85 rounded-2xl p-2.5 border border-amber-400">
+                    <div class="text-[10px] font-black uppercase text-slate-500">LE Earned</div>
+                    <div id="over-coins" class="title-font text-xl sm:text-2xl text-amber-600">+0 LE</div>
+                </div>
+                <div class="bg-white/85 rounded-2xl p-2.5 border border-amber-400">
+                    <div class="text-[10px] font-black uppercase text-slate-500">Near-Misses &amp; Stunts</div>
+                    <div id="over-stunts" class="title-font text-xl sm:text-2xl text-emerald-700">0</div>
+                </div>
+            </div>
+
+            <!-- 1-Time Per Run Animated Watch Ad to Revive Button (10s Cooldown Offer) -->
+            <div id="revive-offer-wrap" class="mb-2.5">
+                <button id="btn-watch-revive" onclick="watchAdToRevive()" class="relative overflow-hidden w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-black text-sm shadow-xl border-2 border-white active:scale-95 transition cursor-pointer">
+                    <div id="revive-progress-fill" class="absolute inset-y-0 left-0 bg-white/25 transition-all duration-100 pointer-events-none" style="width: 100%"></div>
+                    <div class="relative z-10 flex items-center justify-center gap-2">
+                        <span class="text-lg animate-bounce">🎬</span>
+                        <span id="revive-btn-text">WATCH AD TO REVIVE (10s)</span>
+                    </div>
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button onclick="startGame()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-red-600 to-amber-500 text-white title-font text-xl shadow-xl border-2 border-white active:scale-95 transition cursor-pointer">
+                    🔄 DRIVE AGAIN
+                </button>
+                <button onclick="openGarage()" class="w-full py-2.5 rounded-2xl bg-sky-900 text-amber-300 font-black text-sm shadow-lg cursor-pointer">
+                    🔧 UPGRADE IN OSTA GARAGE
+                </button>
+                <button onclick="returnToMenu()" class="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-black text-sm shadow-lg active:scale-95 transition cursor-pointer">
+                    🏠 RETURN TO MAIN MENU
+                </button>
+            </div>
+
+            <!-- Non-Intrusive Game Over Google Ad Banner (Bottom Footer Only) -->
+            <div id="gameover-google-ad-wrap" class="mt-3 pt-2 border-t border-amber-400/70">
+                <div class="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Sponsored</div>
+                <div class="bg-white/90 border border-slate-300 rounded-xl overflow-hidden flex items-center justify-center min-h-[54px] shadow-inner">
+                    <ins class="adsbygoogle"
+                         style="display:inline-block;width:320px;height:50px"
+                         data-ad-client="ca-pub-0000000000000000"
+                         data-ad-slot="2222222222"></ins>
+                    <div id="gameover-ad-fallback" class="flex items-center justify-between w-full px-3 py-1.5 text-left">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded">Ad</span>
+                            <div>
+                                <div class="text-[11px] font-black text-slate-900 leading-tight">Need Faster Parts? Check Osta Tuning!</div>
+                                <div class="text-[9px] text-slate-500 font-bold">Google Ads • Shown Only On Summary</div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg">INFO</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REWARDED AD OVERLAY (FOR 1-TIME REVIVE) -->
+    <div id="rewarded-ad-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="bg-slate-900 border-2 border-cyan-400 rounded-3xl p-6 max-w-sm w-full text-center text-white shadow-2xl space-y-4">
+            <div class="inline-flex items-center gap-1.5 bg-cyan-500/20 text-cyan-300 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-cyan-400/40">
+                📺 Google Rewarded Sponsor Ad
+            </div>
+            <div class="bg-gradient-to-br from-sky-900 to-indigo-950 rounded-2xl p-4 border border-white/15 space-y-2">
+                <div class="text-3xl">🧆☕</div>
+                <div class="title-font text-xl text-amber-300">EL-CORNICHE SHAI &amp; FOUL</div>
+                <p class="text-xs text-sky-100 font-bold">Fueling Alexandria's bravest TukTuk drivers since 1952!</p>
+            </div>
+            <div class="space-y-1.5">
+                <div class="flex justify-between text-xs font-black text-cyan-300">
+                    <span>Granting Second Chance Revive...</span>
+                    <span id="rewarded-ad-sec">3s</span>
+                </div>
+                <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="rewarded-ad-bar" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-100" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CORNICHE AD SIGNS MANAGER MODAL -->
+    <div id="ads-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md">
+        <div class="alex-card rounded-3xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b-2 border-amber-400">
+                <div>
+                    <h2 class="title-font text-2xl sm:text-3xl text-slate-900">🪧 CORNICHE AD SIGNS</h2>
+                    <div class="text-xs font-bold text-slate-700">6 Traditional Alexandria Landmark Billboards</div>
+                </div>
+                <button onclick="closeAdManager()" class="bg-red-600 hover:bg-red-500 text-white w-9 h-9 rounded-xl font-black text-lg cursor-pointer">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Password Gate -->
+            <div id="ads-auth-gate" class="py-6 px-2 text-center space-y-3">
+                <div class="text-3xl">🔐</div>
+                <h3 class="font-black text-base text-slate-900">Enter Admin Password to Manage Ads</h3>
+                <p class="text-xs text-slate-700 font-bold">Authorized advertisers can upload or set global photos on all 6 Alexandria Corniche billboards.</p>
+                <div class="flex flex-col sm:flex-row gap-2 max-w-sm mx-auto">
+                    <input id="ads-password-input" type="password" placeholder="Enter ad manager password..." class="flex-1 px-3.5 py-2.5 rounded-xl border-2 border-amber-500 bg-white text-slate-900 font-bold text-sm focus:outline-none">
+                    <button onclick="verifyAdPassword()" class="px-5 py-2.5 rounded-xl bg-sky-900 hover:bg-sky-800 text-amber-300 font-black text-sm cursor-pointer">
+                        UNLOCK
+                    </button>
+                </div>
+                <div id="ads-auth-error" class="hidden text-xs font-black text-red-600">❌ Incorrect password! Access denied.</div>
+                <div class="pt-3 border-t border-amber-300 text-xs font-black text-indigo-950">
+                    💬 Contact <span class="text-indigo-700 underline">xelemon.</span> on Discord for buying ads
+                </div>
+            </div>
+
+            <!-- Unlocked 6-Slot Ad Manager -->
+            <div id="ads-manager-content" class="hidden overflow-y-auto pr-1 py-3 space-y-3">
+                <div id="ads-sync-banner" class="bg-indigo-950 text-cyan-300 rounded-2xl p-2.5 text-center text-xs font-black border border-cyan-500/40">
+                    🌐 LIVE GLOBAL CLOUD ADS ACTIVE • Contact <span class="text-amber-300 underline">xelemon.</span> on Discord for buying ads
+                </div>
+                <div id="ads-slots-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OSTA GARAGE MODAL -->
+    <div id="garage-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md">
+        <div class="alex-card rounded-3xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b-2 border-amber-400">
+                <div>
+                    <h2 class="title-font text-2xl sm:text-3xl text-slate-900">🔧 OSTA GARAGE &amp; FLEET</h2>
+                    <div class="text-xs font-bold text-slate-700">Balance: <span id="garage-bank" class="text-amber-800 font-black">0 LE</span></div>
+                </div>
+                <button onclick="closeGarage()" class="bg-red-600 hover:bg-red-500 text-white w-9 h-9 rounded-xl font-black text-lg cursor-pointer">
+                    ✕
+                </button>
+            </div>
+
+            <div class="overflow-y-auto pr-1 py-3 space-y-4">
+                <!-- Career Osta Rank Progress -->
+                <div class="bg-white/90 rounded-2xl p-3 border border-amber-400">
+                    <div class="flex justify-between items-center text-xs font-black text-slate-900">
+                        <span id="garage-rank-title">🎖️ Sawaq Gedid (Rookie Driver)</span>
+                        <span id="garage-career-dist" class="text-sky-700">0 m Career</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden my-1.5">
+                        <div id="garage-rank-bar" class="h-full bg-gradient-to-r from-amber-500 to-emerald-500" style="width: 0%"></div>
+                    </div>
+                    <div id="garage-rank-perk" class="text-[11px] font-bold text-emerald-700">Perk: +0% Passenger Fare Bonus</div>
+                </div>
+
+                <!-- 6 TukTuk Models -->
+                <div>
+                    <h3 class="font-black text-sm text-slate-900 mb-2">🛺 Select TukTuk Model (6 Classes)</h3>
+                    <div id="garage-models" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+                </div>
+
+                <!-- Performance Upgrades -->
+                <div>
+                    <h3 class="font-black text-sm text-slate-900 mb-2">⚙️ Performance Tuning</h3>
+                    <div id="garage-upgrades" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+                </div>
+
+                <!-- Liveries & Horns -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <h3 class="font-black text-sm text-slate-900 mb-2">🎨 Paint Liveries</h3>
+                        <div id="garage-skins" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-slate-900 mb-2">📯 Custom Horns (Click to Test)</h3>
+                        <div id="garage-horns" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+                </div>
+
+                <!-- Daily Challenges & Top Runs -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div class="bg-white/90 rounded-2xl p-3 border border-amber-400 space-y-1">
+                        <div class="font-black text-slate-900 mb-1">📅 Daily Corniche Challenges</div>
+                        <div id="garage-daily-list" class="space-y-1"></div>
+                    </div>
+                    <div class="bg-white/90 rounded-2xl p-3 border border-amber-400 space-y-1">
+                        <div class="font-black text-slate-900 mb-1">🏆 Local Leaderboard</div>
+                        <div id="garage-leaderboard" class="space-y-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 1. CATALOGS, SAVE DATA & GLOBAL HANDLERS
+        // ==========================================
+        let startGame, returnToMenu, togglePause, cycleCameraMode, cycleTimeOfDay, toggleMute, toggleMusic, cycleRadioStation, openGarage, closeGarage, triggerHorn, openAdManager, closeAdManager, verifyAdPassword, watchAdToRevive;
+
+        const AD_ADMIN_PASSWORD = 'ALEX-8492-XEL';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'alexandria-tuktuk-rush';
+        let cloudDb = null;
+        let cloudUser = null;
+        let globalCloudAds = {};
+        let adManagerUnlocked = false;
+
+        function updateAdSyncBanner(isLive) {
+            const banner = document.getElementById('ads-sync-banner');
+            if (!banner) return;
+            banner.innerHTML = isLive
+                ? '🌐 LIVE GLOBAL CLOUD ADS ACTIVE • Contact <span class="text-amber-300 underline">xelemon.</span> on Discord for buying ads'
+                : '💾 LOCAL PREVIEW MODE (Offline) • Contact <span class="text-amber-300 underline">xelemon.</span> on Discord for buying ads';
+        }
+
+        let reviveUsedThisRun = false;
+        let reviveOfferInterval = null;
+        let reviveOfferSeconds = 10.0;
+        let rewardedAdInterval = null;
+
+        function refreshGoogleAdSlots(context) {
+            try {
+                if (window.adsbygoogle && Array.isArray(window.adsbygoogle)) {
+                    window.adsbygoogle.push({});
+                }
+            } catch (e) {}
+        }
+
+        function stopReviveOfferCountdown() {
+            if (reviveOfferInterval) {
+                clearInterval(reviveOfferInterval);
+                reviveOfferInterval = null;
+            }
+        }
+
+        function startReviveOfferCountdown() {
+            stopReviveOfferCountdown();
+            const wrap = document.getElementById('revive-offer-wrap');
+            const btn = document.getElementById('btn-watch-revive');
+            const textEl = document.getElementById('revive-btn-text');
+            const fillEl = document.getElementById('revive-progress-fill');
+            if (!wrap || !btn || !textEl || !fillEl) return;
+
+            if (reviveUsedThisRun) {
+                wrap.classList.remove('hidden');
+                btn.disabled = true;
+                btn.className = 'relative overflow-hidden w-full py-2.5 px-4 rounded-2xl bg-slate-700 text-slate-300 font-black text-xs border border-slate-500 cursor-not-allowed opacity-80';
+                fillEl.style.width = '0%';
+                textEl.textContent = '🚫 REVIVE ALREADY USED THIS RUN (1/1)';
+                return;
+            }
+
+            reviveOfferSeconds = 10.0;
+            wrap.classList.remove('hidden');
+            btn.disabled = false;
+            btn.className = 'relative overflow-hidden w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-black text-sm shadow-xl border-2 border-white active:scale-95 transition cursor-pointer animate-pulse';
+            fillEl.style.width = '100%';
+            textEl.textContent = `WATCH AD TO REVIVE (${reviveOfferSeconds.toFixed(1)}s)`;
+
+            reviveOfferInterval = setInterval(() => {
+                reviveOfferSeconds = Math.max(0, reviveOfferSeconds - 0.1);
+                const pct = (reviveOfferSeconds / 10.0) * 100;
+                fillEl.style.width = `${pct}%`;
+                if (reviveOfferSeconds > 0) {
+                    textEl.textContent = `WATCH AD TO REVIVE (${reviveOfferSeconds.toFixed(1)}s)`;
+                } else {
+                    stopReviveOfferCountdown();
+                    btn.disabled = true;
+                    btn.className = 'relative overflow-hidden w-full py-2.5 px-4 rounded-2xl bg-slate-700 text-slate-300 font-black text-xs border border-slate-500 cursor-not-allowed opacity-75';
+                    textEl.textContent = '⌛ REVIVE OFFER EXPIRED (0.0s)';
+                }
+            }, 100);
+        }
+
+        watchAdToRevive = function() {
+            if (reviveUsedThisRun || reviveOfferSeconds <= 0) return;
+            stopReviveOfferCountdown();
+            reviveUsedThisRun = true;
+
+            const adModal = document.getElementById('rewarded-ad-modal');
+            const secEl = document.getElementById('rewarded-ad-sec');
+            const barEl = document.getElementById('rewarded-ad-bar');
+            if (adModal) adModal.classList.remove('hidden');
+
+            let adTime = 3.0;
+            if (secEl) secEl.textContent = '3.0s';
+            if (barEl) barEl.style.width = '0%';
+
+            if (rewardedAdInterval) clearInterval(rewardedAdInterval);
+            rewardedAdInterval = setInterval(() => {
+                adTime = Math.max(0, adTime - 0.1);
+                if (secEl) secEl.textContent = `${adTime.toFixed(1)}s`;
+                if (barEl) barEl.style.width = `${((3.0 - adTime) / 3.0) * 100}%`;
+                if (adTime <= 0) {
+                    clearInterval(rewardedAdInterval);
+                    rewardedAdInterval = null;
+                    if (adModal) adModal.classList.add('hidden');
+                    completeAdRevive();
+                }
+            }, 100);
+        };
+
+        function completeAdRevive() {
+            // Clear nearby hazards so player revives safely
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                if (obstacles[i].position.z > -75) {
+                    scene.remove(obstacles[i]);
+                    obstacles.splice(i, 1);
+                }
+            }
+            clearEventObjects();
+
+            playerY = 0;
+            verticalVel = 0;
+            isAirborne = false;
+            isRolling = false;
+            barrelRollAngle = 0;
+            puddleSlipTimer = 0;
+            potholeSpinTimer = 0;
+            shieldTimer = 6.0;
+            boostFuel = Math.max(boostFuel, 60);
+            if (checkpointTimeLeft < 8.0) {
+                checkpointTimeLeft = 10.0;
+            }
+
+            document.getElementById('gameover-modal').classList.add('hidden');
+            gameState = 'PLAYING';
+            sound.init();
+            sound.playPowerup();
+            sound.startBeatLoop();
+            triggerScreenFlash('rgba(16, 185, 129, 0.45)');
+            showToast('🧿 REVIVED! +6s Khamsa Shield & Fresh Gate Time!', 'text-emerald-300');
+        }
+
+        async function initGlobalCloudAds() {
+            try {
+                if (typeof __firebase_config === 'undefined') {
+                    updateAdSyncBanner(false);
+                    return;
+                }
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                cloudDb = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                    cloudUser = cred.user;
+                } else {
+                    const cred = await signInAnonymously(auth);
+                    cloudUser = cred.user;
+                }
+
+                if (!cloudUser) {
+                    updateAdSyncBanner(false);
+                    return;
+                }
+                updateAdSyncBanner(true);
+                const adsCol = collection(cloudDb, 'artifacts', appId, 'public', 'data', 'corniche_ads');
+                onSnapshot(
+                    adsCol,
+                    (snapshot) => {
+                        const updated = {};
+                        snapshot.forEach((docSnap) => {
+                            const data = docSnap.data();
+                            if (data && data.imageUrl) {
+                                updated[docSnap.id] = data.imageUrl;
+                            }
+                        });
+                        globalCloudAds = updated;
+                        TRADITIONAL_ALEX_ADS.forEach((slot) => {
+                            const src = globalCloudAds[slot.id] || slot.globalUrl || null;
+                            applyAdTextureToSign(slot.id, src);
+                        });
+                        if (adManagerUnlocked && !document.getElementById('ads-modal').classList.contains('hidden')) {
+                            renderAdManagerSlots();
+                        }
+                    },
+                    (err) => {
+                        console.warn('Global cloud ads sync notice:', err);
+                        updateAdSyncBanner(false);
+                    }
+                );
+            } catch (err) {
+                console.warn('Cloud ads initialization skipped:', err);
+                updateAdSyncBanner(false);
+            }
+        }
+
+        async function saveGlobalCloudAd(slotId, imageUrl) {
+            globalCloudAds[slotId] = imageUrl;
+            applyAdTextureToSign(slotId, imageUrl);
+            if (!cloudDb || !cloudUser) return;
+            try {
+                const adRef = doc(cloudDb, 'artifacts', appId, 'public', 'data', 'corniche_ads', slotId);
+                await setDoc(adRef, {
+                    slotId,
+                    imageUrl,
+                    updatedAt: Date.now()
+                });
+            } catch (err) {
+                showToast('⚠️ Cloud save error: image may be too large', 'text-rose-400');
+            }
+        }
+
+        async function resetGlobalCloudAd(slotId) {
+            delete globalCloudAds[slotId];
+            const slot = TRADITIONAL_ALEX_ADS.find(s => s.id === slotId);
+            applyAdTextureToSign(slotId, (slot && slot.globalUrl) || null);
+            if (!cloudDb || !cloudUser) return;
+            try {
+                const adRef = doc(cloudDb, 'artifacts', appId, 'public', 'data', 'corniche_ads', slotId);
+                await deleteDoc(adRef);
+            } catch (err) {
+                console.warn('Cloud ad delete notice:', err);
+            }
+        }
+
+        function compressImageFileToDataUrl(file, callback) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxW = 640;
+                    const scale = Math.min(1, maxW / img.width);
+                    const c = document.createElement('canvas');
+                    c.width = Math.round(img.width * scale);
+                    c.height = Math.round(img.height * scale);
+                    const ctx = c.getContext('2d');
+                    ctx.drawImage(img, 0, 0, c.width, c.height);
+                    callback(c.toDataURL('image/jpeg', 0.78));
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Add a globalUrl (e.g. 'https://i.imgur.com/your-ad.png') to any slot below as a static fallback!
+        const TRADITIONAL_ALEX_ADS = [
+            { id: 'ad1', place: '🍦 Gelato Azza (Mahatet El-Raml)', tagline: 'Since 1934 • Fresh Mango & Pistachio', bg: '#fef08a', fg: '#991b1b', zPos: -45, globalUrl: '' },
+            { id: 'ad2', place: '🐟 Fish Market (Bahary Harbor)', tagline: 'Fresh Mediterranean Catch & Sayadeya', bg: '#bae6fd', fg: '#0c4a6e', zPos: -95, globalUrl: '' },
+            { id: 'ad3', place: '🧆 Foul Mohamed Ahmed (Downtown)', tagline: 'Legendary Alexandrian Iskandarani Foul', bg: '#fed7aa', fg: '#7c2d12', zPos: -145, globalUrl: '' },
+            { id: 'ad4', place: '☕ Café Trianon (Saad Zaghloul)', tagline: 'Historic Royal Patisserie & Espresso', bg: '#fde68a', fg: '#451a03', zPos: -195, globalUrl: '' },
+            { id: 'ad5', place: '🥐 Delices Patisserie (Raml Station)', tagline: 'Classic Greek-Alexandrian Sweets Since 1922', bg: '#fbcfe8', fg: '#831843', zPos: -245, globalUrl: '' },
+            { id: 'ad6', place: '📚 El-Naby Daniel Book Market', tagline: 'Rare Books, Antiques & Alex Heritage', bg: '#bbf7d0', fg: '#14532d', zPos: -295, globalUrl: '' }
+        ];
+
+        const TUKTUK_MODELS = [
+            { id: 'classic', name: 'Classic Alex', icon: '🛺', price: 0, primary: 0xfacc15, accent: 0xdc2626, speedMult: 1.0, handlingMult: 1.0, perk: 'Balanced Corniche workhorse' },
+            { id: 'racing', name: 'Turbo GT', icon: '🏎️', price: 350, primary: 0xef4444, accent: 0xffffff, speedMult: 1.14, handlingMult: 1.12, perk: '+14% Top Speed & Sharp Steering' },
+            { id: 'taxi', name: 'Alex Black-Yellow', icon: '🚕', price: 450, primary: 0x0f172a, accent: 0xfacc15, speedMult: 1.05, handlingMult: 1.06, perk: '+35% Passenger Fare Payouts' },
+            { id: 'delivery', name: 'Foul Express', icon: '📦', price: 550, primary: 0xf97316, accent: 0x1e293b, speedMult: 1.04, handlingMult: 1.02, perk: '+25% Total LE Run Bonus' },
+            { id: 'police', name: 'Alex Police', icon: '🚓', price: 750, primary: 0x1e3a8a, accent: 0xef4444, speedMult: 1.10, handlingMult: 1.08, perk: 'Auto-clears Kameen Checkpoints' },
+            { id: 'golden', name: 'Pharaoh Gold', icon: '👑', price: 1200, primary: 0xf59e0b, accent: 0xfef08a, speedMult: 1.16, handlingMult: 1.15, perk: '2.0x LE Coins & Royal Speed' }
+        ];
+
+        const UPGRADES_CATALOG = [
+            { id: 'topSpeed', name: '2-Stroke Carburetor', desc: '+5% Top Speed per level', baseCost: 120, maxLevel: 5 },
+            { id: 'accel', name: 'Sport Clutch', desc: '+12% Acceleration per level', baseCost: 110, maxLevel: 5 },
+            { id: 'handling', name: 'Fork Suspension', desc: '+8% Lane Handling per level', baseCost: 100, maxLevel: 5 },
+            { id: 'brake', name: 'Hydraulic Discs', desc: 'Tighter Drift & Braking', baseCost: 90, maxLevel: 5 },
+            { id: 'nitroCap', name: 'Double Shai Tank', desc: 'Longer Nitro & Faster Recharge', baseCost: 130, maxLevel: 5 },
+            { id: 'magnetPower', name: 'Neodymium Magnet', desc: '+3s Khamsa & Magnet Duration', baseCost: 150, maxLevel: 4 }
+        ];
+
+        const SKINS_CATALOG = [
+            { id: 'default', name: 'Classic Yellow', price: 0, primary: 0xfacc15, accent: 0xdc2626 },
+            { id: 'ittihad', name: 'Al-Ittihad Green', price: 150, primary: 0x15803d, accent: 0xffffff },
+            { id: 'mediterranean', name: 'Bahary Cyan', price: 200, primary: 0x0284c7, accent: 0xfef08a },
+            { id: 'sunset', name: 'Stanley Sunset', price: 280, primary: 0xf97316, accent: 0x1e1b4b }
+        ];
+
+        const HORNS_CATALOG = [
+            { id: 'mahraganat', name: 'Mahraganat Airhorn', icon: '🎶', price: 0 },
+            { id: 'trambell', name: 'Raml Tram Bell', icon: '🚋', price: 120 },
+            { id: 'icecream', name: 'Gelato Azza Chime', icon: '🍦', price: 180 },
+            { id: 'goat', name: 'Sidi Gaber Goat', icon: '🐐', price: 240 },
+            { id: 'cucaracha', name: 'El-Osta Fiesta', icon: '🎺', price: 300 },
+            { id: 'airhorn', name: 'Port Ship Horn', icon: '🚢', price: 400 }
+        ];
+
+        const RADIO_STATIONS = [
+            { id: 'mahraganat', name: 'Mahraganat', tempo: 138, scale: [293.66, 311.13, 369.99, 392.00, 440.00, 466.16, 587.33] },
+            { id: 'tarab', name: 'Alex Tarab', tempo: 175, scale: [261.63, 293.66, 311.13, 392.00, 415.30, 523.25] },
+            { id: 'synth', name: 'Corniche FM', tempo: 148, scale: [220.00, 261.63, 329.63, 392.00, 440.00, 523.25] },
+            { id: 'off', name: 'Radio OFF', tempo: 150, scale: [] }
+        ];
+
+        const DISTRICTS = [
+            { name: 'Qaitbay & Anfoushi', minDist: 0, sub: 'Historic harbor & seaside fortress walls' },
+            { name: 'El-Mansheya & Raml Station', minDist: 450, sub: 'Busy tram tracks & downtown bazaars' },
+            { name: 'Sidi Gaber & Stanley Bridge', minDist: 1050, sub: 'Twin towers & coastal sea breeze' },
+            { name: 'San Stefano & Gleem Bay', minDist: 1800, sub: 'Neon skyline & high-speed Corniche' },
+            { name: 'El-Montazah Royal Gardens', minDist: 2700, sub: 'Final pro gauntlet along the palace walls' }
+        ];
+
+        const OSTA_RANKS = [
+            { title: '🎖️ Sawaq Gedid (Rookie Driver)', minDist: 0, tipBonus: 0 },
+            { title: '🏅 Ibn El-Corniche (Coastal Pro)', minDist: 1500, tipBonus: 0.15 },
+            { title: '🏆 Muallem El-Iskandariya (Master)', minDist: 5000, tipBonus: 0.30 },
+            { title: '👑 Sultan El-TukTuk (Legend)', minDist: 12000, tipBonus: 0.50 }
+        ];
+
+        const NPC_SHOUTS = [
+            '"HASEB YA OSTA!"',
+            '"EEH EL-GADA\'ANA DI!"',
+            '"SHWEYA SHWEYA!"',
+            '"ALLAH YENAWAR!"',
+            '"YA SALAM YA ALEX!"'
+        ];
+
+        const PASSENGER_COMPLAINTS = [
+            '🗣️ "Be careful Osta, my groceries!"',
+            '🗣️ "Slow down! Is this Formula 1?!"',
+            '🗣️ "Ya Sater! Watch the potholes!"'
+        ];
+
+        const DEFAULT_SAVE = {
+            highScore: 0,
+            bankCoins: 150,
+            careerDistance: 0,
+            selectedModel: 'classic',
+            unlockedModels: ['classic'],
+            selectedSkin: 'default',
+            unlockedSkins: ['default'],
+            selectedHorn: 'mahraganat',
+            unlockedHorns: ['mahraganat'],
+            customAds: {},
+            upgrades: { topSpeed: 1, accel: 1, handling: 1, brake: 1, nitroCap: 1, durability: 1 },
+            dailyStats: { nearMisses: 0, distance: 0, survivedSec: 0 },
+            leaderboard: [
+                { name: 'Osta Hamada 👑', score: 18500, dist: 2400 },
+                { name: 'Kaptin Mido 🏎️', score: 11200, dist: 1550 },
+                { name: 'Aunty Samira 🚕', score: 6400, dist: 920 }
+            ]
+        };
+
+        let saveData = JSON.parse(JSON.stringify(DEFAULT_SAVE));
+        try {
+            const raw = localStorage.getItem('alex_tuktuk_save_v3');
+            if (raw) saveData = Object.assign({}, DEFAULT_SAVE, JSON.parse(raw));
+        } catch (e) {}
+
+        function persistSaveData() {
+            try {
+                localStorage.setItem('alex_tuktuk_save_v3', JSON.stringify(saveData));
+            } catch (e) {}
+            updateBankUI();
+        }
+
+        function updateBankUI() {
+            const hs = document.getElementById('menu-highscore');
+            const mb = document.getElementById('menu-bank');
+            const gb = document.getElementById('garage-bank');
+            if (hs) hs.textContent = (saveData.highScore || 0).toLocaleString();
+            if (mb) mb.textContent = `${saveData.bankCoins || 0} LE`;
+            if (gb) gb.textContent = `${saveData.bankCoins || 0} LE`;
+        }
+
+        function getCurrentOstaRank() {
+            let current = OSTA_RANKS[0];
+            let next = OSTA_RANKS[1] || null;
+            for (let i = 0; i < OSTA_RANKS.length; i++) {
+                if ((saveData.careerDistance || 0) >= OSTA_RANKS[i].minDist) {
+                    current = OSTA_RANKS[i];
+                    next = OSTA_RANKS[i + 1] || null;
+                }
+            }
+            return { current, next };
+        }
+
+        // ==========================================
+        // 2. PROCEDURAL WEB AUDIO, ENGINE PURR & TUKTUK RADIO
+        // ==========================================
+        class SoundController {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.musicEnabled = true;
+                this.beatInterval = null;
+                this.beatStep = 0;
+                this.tempoMs = 142;
+                this.engineOsc = null;
+                this.engineGain = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+                if (this.ctx && !this.engineOsc) {
+                    this.engineOsc = this.ctx.createOscillator();
+                    this.engineGain = this.ctx.createGain();
+                    const filter = this.ctx.createBiquadFilter();
+                    this.engineOsc.type = 'sawtooth';
+                    this.engineOsc.frequency.value = 52;
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 190;
+                    this.engineGain.gain.value = 0.0001;
+                    this.engineOsc.connect(filter);
+                    filter.connect(this.engineGain);
+                    this.engineGain.connect(this.ctx.destination);
+                    this.engineOsc.start();
+                }
+            }
+            updateEngine(speed, active, boosting, fever) {
+                if (!this.ctx || !this.engineOsc || !this.engineGain) return;
+                const now = this.ctx.currentTime;
+                if (this.muted || !active) {
+                    this.engineGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                    return;
+                }
+                const targetFreq = 46 + speed * 1.15 + (boosting ? 24 : 0) + (fever ? 18 : 0);
+                this.engineOsc.frequency.setTargetAtTime(targetFreq, now, 0.06);
+                this.engineGain.gain.setTargetAtTime(boosting || fever ? 0.045 : 0.028, now, 0.08);
+            }
+            playDriftScreech() {
+                if (this.muted || !this.ctx || Math.random() > 0.35) return;
+                this.playTone(920 + Math.random() * 240, 'sawtooth', 0.09, 0.03, 0);
+            }
+            playThunder() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(95, now);
+                osc.frequency.exponentialRampToValueAtTime(28, now + 0.9);
+                gain.gain.setValueAtTime(0.22, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 1.0);
+            }
+            playTone(freq, type, duration, vol = 0.12, delay = 0) {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime + delay;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + duration + 0.02);
+            }
+            playCoin(combo = 1) {
+                const base = 780 + Math.min(combo, 8) * 55;
+                this.playTone(base, 'sine', 0.12, 0.11, 0);
+                this.playTone(base * 1.33, 'triangle', 0.16, 0.1, 0.05);
+            }
+            playPowerup() {
+                [440, 554.37, 659.25, 880].forEach((f, i) => this.playTone(f, 'triangle', 0.18, 0.12, i * 0.055));
+            }
+            playNearMiss() {
+                this.playTone(620, 'sine', 0.14, 0.1, 0);
+                this.playTone(930, 'sine', 0.18, 0.09, 0.06);
+            }
+            playSwoosh() {
+                this.playTone(220, 'triangle', 0.25, 0.12, 0);
+                this.playTone(440, 'sine', 0.28, 0.1, 0.07);
+            }
+            playCrash() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(140, now);
+                osc.frequency.exponentialRampToValueAtTime(32, now + 0.45);
+                gain.gain.setValueAtTime(0.24, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.46);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.48);
+            }
+            playHorn(hornType = 'mahraganat') {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                if (hornType === 'goat') {
+                    const osc = this.ctx.createOscillator();
+                    const lfo = this.ctx.createOscillator();
+                    const lfoGain = this.ctx.createGain();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(340, now);
+                    osc.frequency.linearRampToValueAtTime(270, now + 0.45);
+                    lfo.frequency.value = 26;
+                    lfoGain.gain.value = 32;
+                    lfo.connect(lfoGain);
+                    lfoGain.connect(osc.frequency);
+                    gain.gain.setValueAtTime(0.13, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    lfo.start(now);
+                    osc.stop(now + 0.5);
+                    lfo.stop(now + 0.5);
+                } else if (hornType === 'icecream') {
+                    [523.25, 659.25, 783.99, 659.25, 523.25, 783.99].forEach((f, idx) => {
+                        this.playTone(f, 'sine', 0.12, 0.11, idx * 0.085);
+                    });
+                } else if (hornType === 'airhorn') {
+                    [155.56, 196.00, 233.08].forEach(freq => {
+                        this.playTone(freq, 'sawtooth', 0.42, 0.09, 0);
+                    });
+                } else if (hornType === 'trambell') {
+                    [1180, 1760].forEach(f => this.playTone(f, 'sine', 0.35, 0.12, 0));
+                    [1180, 1760].forEach(f => this.playTone(f, 'sine', 0.35, 0.12, 0.16));
+                } else if (hornType === 'cucaracha') {
+                    const notes = [261.63, 261.63, 261.63, 349.23, 440.00];
+                    notes.forEach((f, i) => this.playTone(f, 'square', 0.11, 0.08, i * 0.11));
+                } else {
+                    const notes = [392.00, 493.88, 587.33, 493.88, 587.33];
+                    notes.forEach((f, i) => this.playTone(f, 'sawtooth', 0.1, 0.08, i * 0.085));
+                }
+            }
+            startBeatLoop() {
+                this.stopBeatLoop();
+                if (!this.musicEnabled || this.muted) return;
+                this.beatInterval = setInterval(() => {
+                    if (this.muted || !this.musicEnabled || !this.ctx) return;
+                    const st = RADIO_STATIONS[radioIdx] || RADIO_STATIONS[0];
+                    if (!st.scale || st.scale.length === 0) return;
+                    const step = this.beatStep % 8;
+                    // Oriental Darbuka Dum & Tak percussion
+                    if (step === 0 || step === 3 || step === 4) {
+                        this.playTone(62, 'sine', 0.13, 0.13, 0); // DUM
+                    } else if (step === 2 || step === 6 || step === 7) {
+                        this.playTone(290, 'triangle', 0.06, 0.065, 0); // TAK
+                    }
+                    // Hijaz / Oriental Synth Melody
+                    if (step % 2 === 1 || feverMode) {
+                        const note = st.scale[(this.beatStep * 3) % st.scale.length] * (feverMode ? 2 : 1);
+                        this.playTone(note, feverMode ? 'sawtooth' : 'triangle', 0.12, 0.06, 0);
+                    }
+                    this.beatStep++;
+                }, feverMode ? Math.max(95, this.tempoMs - 32) : this.tempoMs);
+            }
+            setBeatTempo(ms) {
+                this.tempoMs = ms;
+                if (this.beatInterval) this.startBeatLoop();
+            }
+            stopBeatLoop() {
+                if (this.beatInterval) {
+                    clearInterval(this.beatInterval);
+                    this.beatInterval = null;
+                }
+            }
+        }
+        const sound = new SoundController();
+
+        // ==========================================
+        // 3. THREE.JS SCENE, SHADERS & ENVIRONMENT
+        // ==========================================
+        const canvas = document.getElementById('game-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x7dd3fc, 0.0052);
+
+        const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 450);
+        camera.position.set(0, 4.6, 8.8);
+
+        const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x334155, 0.95);
+        scene.add(hemiLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.35);
+        sunLight.position.set(28, 46, 22);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        scene.add(sunLight);
+
+        // Sky Dome
+        const skyMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.BackSide });
+        const skyDome = new THREE.Mesh(new THREE.SphereGeometry(280, 24, 16), skyMat);
+        scene.add(skyDome);
+
+        // Mediterranean Sea with GLSL Animated Waves (Strictly west of x = -6.2 seawall!)
+        const seaUniforms = {
+            uTime: { value: 0 },
+            uDeepColor: { value: new THREE.Color(0x0369a1) },
+            uShallowColor: { value: new THREE.Color(0x06b6d4) }
+        };
+        const seaMat = new THREE.ShaderMaterial({
+            uniforms: seaUniforms,
+            vertexShader: `
+                uniform float uTime;
+                varying vec2 vUv;
+                varying float vWave;
+                void main() {
+                    vUv = uv;
+                    vec3 pos = position;
+                    float w1 = sin(pos.x * 0.25 + uTime * 2.2) * 0.28;
+                    float w2 = cos(pos.y * 0.18 + uTime * 1.7) * 0.22;
+                    pos.z += w1 + w2;
+                    vWave = w1 + w2;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 uDeepColor;
+                uniform vec3 uShallowColor;
+                varying vec2 vUv;
+                varying float vWave;
+                void main() {
+                    float foam = smoothstep(0.28, 0.48, vWave) + smoothstep(0.95, 1.0, vUv.x) * 0.7;
+                    vec3 col = mix(uDeepColor, uShallowColor, vUv.x * 0.8 + vWave * 0.4);
+                    col = mix(col, vec3(0.95, 0.99, 1.0), clamp(foam, 0.0, 0.85));
+                    gl_FragColor = vec4(col, 1.0);
+                }
+            `
+        });
+        const seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(300, 420, 48, 48), seaMat);
+        seaMesh.rotation.x = -Math.PI / 2;
+        seaMesh.position.set(-156.2, -0.95, -140);
+        scene.add(seaMesh);
+
+        // Asphalt Corniche Road (3 Lanes: x = -3.1, 0, +3.1)
+        const LANES = [-3.1, 0, 3.1];
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.78, metalness: 0.12 });
+        const roadMesh = new THREE.Mesh(new THREE.PlaneGeometry(11.4, 420), roadMat);
+        roadMesh.rotation.x = -Math.PI / 2;
+        roadMesh.position.set(0, 0, -140);
+        roadMesh.receiveShadow = true;
+        scene.add(roadMesh);
+
+        // Eastern City Ground & Sidewalk
+        const cityGround = new THREE.Mesh(
+            new THREE.PlaneGeometry(240, 420),
+            new THREE.MeshStandardMaterial({ color: 0xd6d3d1, roughness: 0.9 })
+        );
+        cityGround.rotation.x = -Math.PI / 2;
+        cityGround.position.set(125.7, 0.02, -140);
+        scene.add(cityGround);
+
+        // Corniche Seawall Balustrade (x = -6.0)
+        const seawall = new THREE.Mesh(
+            new THREE.BoxGeometry(0.7, 1.15, 420),
+            new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.75 })
+        );
+        seawall.position.set(-6.0, 0.45, -140);
+        seawall.castShadow = true;
+        scene.add(seawall);
+
+        // Scrolling Road Dashes, Palm Trees, Streetlamps & Alexandria Apartment Buildings
+        const roadMarkers = [];
+        const dashMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+        for (let z = 20; z > -340; z -= 9) {
+            [-1.55, 1.55].forEach(lx => {
+                const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 4.2), dashMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.position.set(lx, 0.015, z);
+                scene.add(dash);
+                roadMarkers.push(dash);
+            });
+        }
+
+        const sceneryProps = [];
+        const buildingColors = [0xfef3c7, 0xfde68a, 0xfed7aa, 0xe0f2fe, 0xfecdd3];
+        const lampGlowMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+        const lampPoleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.35 });
+
+        for (let z = 15; z > -340; z -= 18) {
+            // Corniche Streetlamp along sidewalk edge
+            const lamp = new THREE.Group();
+            const lPole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 4.8, 6), lampPoleMat);
+            lPole.position.y = 2.4;
+            lamp.add(lPole);
+            const lArm = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.08), lampPoleMat);
+            lArm.position.set(-0.45, 4.75, 0);
+            lamp.add(lArm);
+            const lBulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), lampGlowMat);
+            lBulb.position.set(-0.9, 4.65, 0);
+            lamp.add(lBulb);
+            lamp.position.set(6.2, 0, z + 6);
+            scene.add(lamp);
+            sceneryProps.push(lamp);
+
+            // Palm tree along Corniche
+            const palm = new THREE.Group();
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.16, 0.28, 5.4, 7),
+                new THREE.MeshStandardMaterial({ color: 0x78350f })
+            );
+            trunk.position.y = 2.7;
+            palm.add(trunk);
+            for (let f = 0; f < 5; f++) {
+                const leaf = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.35, 0.08, 2.2),
+                    new THREE.MeshStandardMaterial({ color: 0x15803d })
+                );
+                leaf.position.y = 5.3;
+                leaf.rotation.y = (f / 5) * Math.PI * 2;
+                leaf.rotation.x = 0.45;
+                palm.add(leaf);
+            }
+            palm.position.set(8.4, 0, z);
+            scene.add(palm);
+            sceneryProps.push(palm);
+
+            // Classic Mediterranean Apartment Building
+            const bHeight = 12 + Math.random() * 14;
+            const bldg = new THREE.Mesh(
+                new THREE.BoxGeometry(9, bHeight, 13),
+                new THREE.MeshStandardMaterial({ color: buildingColors[Math.floor(Math.random() * buildingColors.length)], roughness: 0.85 })
+            );
+            bldg.position.set(16.5, bHeight / 2, z - 4);
+            scene.add(bldg);
+            sceneryProps.push(bldg);
+        }
+
+        // Mediterranean Felucca Sailboats cruising offshore
+        const sailboats = [];
+        for (let b = 0; b < 3; b++) {
+            const boat = new THREE.Group();
+            const hull = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.65, 4.2), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
+            hull.position.y = 0.2;
+            boat.add(hull);
+            const sail = new THREE.Mesh(new THREE.ConeGeometry(1.6, 4.4, 3), new THREE.MeshStandardMaterial({ color: 0xfef3c7, side: THREE.DoubleSide }));
+            sail.position.set(0, 2.5, 0);
+            sail.rotation.y = Math.PI / 2;
+            boat.add(sail);
+            boat.position.set(-22 - b * 14, -0.5, -50 - b * 85);
+            scene.add(boat);
+            sailboats.push(boat);
+        }
+
+        // 6 Traditional Alexandria Landmark Ad Billboards along the Corniche
+        const adSignMeshes = [];
+
+        function createDefaultAdTexture(adSlot) {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = adSlot.bg;
+            ctx.fillRect(0, 0, 512, 256);
+            ctx.strokeStyle = adSlot.fg;
+            ctx.lineWidth = 14;
+            ctx.strokeRect(10, 10, 492, 236);
+
+            ctx.fillStyle = adSlot.fg;
+            ctx.font = 'bold 28px Cairo, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(adSlot.place, 256, 82);
+
+            ctx.font = 'bold 20px Cairo, sans-serif';
+            ctx.fillText(adSlot.tagline, 256, 132);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(46, 172, 420, 44);
+            ctx.fillStyle = '#facc15';
+            ctx.font = 'bold 17px Cairo, sans-serif';
+            ctx.fillText('contact xelemon. on discord for buying ads', 256, 200);
+
+            const tex = new THREE.CanvasTexture(c);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function applyAdTextureToSign(adId, imageSource) {
+            const entry = adSignMeshes.find(item => item.id === adId);
+            if (!entry) return;
+            if (!imageSource) {
+                entry.boardMat.map = createDefaultAdTexture(entry.slot);
+                entry.boardMat.needsUpdate = true;
+                return;
+            }
+            const loader = new THREE.TextureLoader();
+            loader.setCrossOrigin('anonymous');
+            loader.load(
+                imageSource,
+                (tex) => {
+                    entry.boardMat.map = tex;
+                    entry.boardMat.needsUpdate = true;
+                },
+                undefined,
+                () => {
+                    showToast('⚠️ Could not load image URL (CORS or invalid link)', 'text-rose-400');
+                }
+            );
+        }
+
+        TRADITIONAL_ALEX_ADS.forEach((adSlot) => {
+            const signGroup = new THREE.Group();
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.3 });
+            [-2.6, 2.6].forEach(px => {
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.18, 5.2, 8), poleMat);
+                pole.position.set(px, 2.6, 0);
+                signGroup.add(pole);
+            });
+
+            const frame = new THREE.Mesh(
+                new THREE.BoxGeometry(5.6, 3.1, 0.25),
+                new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.25, metalness: 0.4, roughness: 0.4 })
+            );
+            frame.position.set(0, 4.1, 0);
+            signGroup.add(frame);
+
+            const boardMat = new THREE.MeshBasicMaterial({ map: createDefaultAdTexture(adSlot) });
+            const board = new THREE.Mesh(new THREE.PlaneGeometry(5.25, 2.75), boardMat);
+            board.position.set(0, 4.1, 0.15);
+            signGroup.add(board);
+
+            signGroup.position.set(7.8, 0, adSlot.zPos);
+            signGroup.rotation.y = -0.32;
+            scene.add(signGroup);
+            adSignMeshes.push({ id: adSlot.id, slot: adSlot, group: signGroup, boardMat });
+
+            const initialAdSrc = globalCloudAds[adSlot.id] || adSlot.globalUrl;
+            if (initialAdSrc) {
+                applyAdTextureToSign(adSlot.id, initialAdSrc);
+            }
+        });
+        initGlobalCloudAds();
+
+        // Distant Qaitbay Citadel Silhouette
+        const qaitbay = new THREE.Group();
+        const fortBase = new THREE.Mesh(new THREE.BoxGeometry(16, 9, 16), new THREE.MeshStandardMaterial({ color: 0xfde68a }));
+        fortBase.position.y = 4.5;
+        qaitbay.add(fortBase);
+        const fortTower = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.8, 14, 12), new THREE.MeshStandardMaterial({ color: 0xfef3c7 }));
+        fortTower.position.set(0, 7, 0);
+        qaitbay.add(fortTower);
+        qaitbay.position.set(-28, 0, -240);
+        scene.add(qaitbay);
+
+        // Iconic Twin Towers of Stanley Bridge Arching Over the Corniche
+        const stanleyBridge = new THREE.Group();
+        const bridgeStone = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.65 });
+        const bridgeRoofMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.5 });
+        [-7.2, 7.2].forEach(tx => {
+            const tower = new THREE.Mesh(new THREE.BoxGeometry(2.4, 15, 2.8), bridgeStone);
+            tower.position.set(tx, 7.5, 0);
+            stanleyBridge.add(tower);
+            const dome = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.2, 4), bridgeRoofMat);
+            dome.rotation.y = Math.PI / 4;
+            dome.position.set(tx, 16.5, 0);
+            stanleyBridge.add(dome);
+        });
+        const bridgeSpan = new THREE.Mesh(new THREE.BoxGeometry(17.5, 1.5, 2.2), bridgeStone);
+        bridgeSpan.position.set(0, 12.2, 0);
+        stanleyBridge.add(bridgeSpan);
+        stanleyBridge.position.set(0, 0, -190);
+        scene.add(stanleyBridge);
+
+        // Bibliotheca Alexandrina Tilted Sun-Disc Landmark
+        const bibliotheca = new THREE.Group();
+        const bibDisc = new THREE.Mesh(
+            new THREE.CylinderGeometry(9.5, 9.5, 3.5, 24),
+            new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.25, metalness: 0.6, roughness: 0.2 })
+        );
+        bibDisc.rotation.x = Math.PI / 2.6;
+        bibDisc.position.y = 4.5;
+        bibliotheca.add(bibDisc);
+        bibliotheca.position.set(22, 0, -110);
+        scene.add(bibliotheca);
+
+        // Yellow-and-Black Alexandria Raml Tram on Parallel Track
+        const ramlTram = new THREE.Group();
+        const tramBody = new THREE.Mesh(new THREE.BoxGeometry(2.1, 2.6, 11), new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 }));
+        tramBody.position.y = 1.5;
+        ramlTram.add(tramBody);
+        const tramStripe = new THREE.Mesh(new THREE.BoxGeometry(2.16, 0.5, 11.05), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+        tramStripe.position.y = 1.2;
+        ramlTram.add(tramStripe);
+        ramlTram.position.set(8.6, 0, -90);
+        scene.add(ramlTram);
+
+        // 3D Rain Particles for Alexandria Storm Weather Mode
+        const rainCount = 450;
+        const rainGeo = new THREE.BufferGeometry();
+        const rainPositions = new Float32Array(rainCount * 3);
+        for (let r = 0; r < rainCount; r++) {
+            rainPositions[r * 3] = (Math.random() - 0.5) * 40;
+            rainPositions[r * 3 + 1] = Math.random() * 22;
+            rainPositions[r * 3 + 2] = -Math.random() * 120 + 10;
+        }
+        rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+        const rainPoints = new THREE.Points(
+            rainGeo,
+            new THREE.PointsMaterial({ color: 0xbae6fd, size: 0.22, transparent: true, opacity: 0.75 })
+        );
+        rainPoints.visible = false;
+        scene.add(rainPoints);
+
+        // ==========================================
+        // 4. PLAYER 3D TUKTUK BUILDER
+        // ==========================================
+        const playerGroup = new THREE.Group();
+        const tuktukBodyGroup = new THREE.Group();
+        playerGroup.add(tuktukBodyGroup);
+
+        // Mazaag Fever Golden-Cyan Aura Ring Around Player TukTuk
+        const feverAuraMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+        const feverAuraRing = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.55, 28), feverAuraMat);
+        feverAuraRing.rotation.x = -Math.PI / 2;
+        feverAuraRing.position.set(0, 0.12, 0);
+        playerGroup.add(feverAuraRing);
+
+        const primaryPaintMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.25, roughness: 0.35 });
+        const accentPaintMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.2, roughness: 0.4 });
+        const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.5, roughness: 0.4 });
+
+        // Lower Chassis & Cabin
+        const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.65, 2.35), primaryPaintMat);
+        chassis.position.set(0, 0.58, 0);
+        chassis.castShadow = true;
+        tuktukBodyGroup.add(chassis);
+
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.2, 2.38), accentPaintMat);
+        stripe.position.set(0, 0.62, 0);
+        tuktukBodyGroup.add(stripe);
+
+        // Canopy Roof
+        const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.14, 2.05), darkMetalMat);
+        canopy.position.set(0, 1.72, 0.12);
+        canopy.castShadow = true;
+        tuktukBodyGroup.add(canopy);
+
+        // Windshield Frame & Pillars
+        const windshield = new THREE.Mesh(
+            new THREE.BoxGeometry(1.24, 0.72, 0.08),
+            new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.55, roughness: 0.1 })
+        );
+        windshield.position.set(0, 1.26, -0.82);
+        windshield.rotation.x = -0.18;
+        tuktukBodyGroup.add(windshield);
+
+        [[-0.62, -0.78], [0.62, -0.78], [-0.62, 0.95], [0.62, 0.95]].forEach(([px, pz]) => {
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.85, 8), darkMetalMat);
+            pillar.position.set(px, 1.3, pz);
+            tuktukBodyGroup.add(pillar);
+        });
+
+        // Headlight & Horn Shockwave Ring
+        const headlight = new THREE.Mesh(
+            new THREE.SphereGeometry(0.16, 12, 12),
+            new THREE.MeshBasicMaterial({ color: 0xfef08a })
+        );
+        headlight.position.set(0, 0.72, -1.18);
+        tuktukBodyGroup.add(headlight);
+
+        const hornRingMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+        const hornRing = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.65, 24), hornRingMat);
+        hornRing.rotation.x = -Math.PI / 2;
+        hornRing.position.set(0, 0.25, -0.5);
+        playerGroup.add(hornRing);
+
+        // 3 Wheels
+        const wheelGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.22, 14);
+        wheelGeo.rotateZ(Math.PI / 2);
+        const wheels = [];
+        [[0, 0.28, -0.95], [-0.68, 0.28, 0.78], [0.68, 0.28, 0.78]].forEach(([wx, wy, wz]) => {
+            const w = new THREE.Mesh(wheelGeo, darkMetalMat);
+            w.position.set(wx, wy, wz);
+            tuktukBodyGroup.add(w);
+            wheels.push(w);
+        });
+
+        scene.add(playerGroup);
+
+        // ==========================================
+        // 5. TRAFFIC, HAZARDS & COLLECTIBLE FACTORIES
+        // ==========================================
+        const obstacles = [];
+        const collectibles = [];
+        const passengerZones = [];
+        const dropoffZones = [];
+        const activeParticles = [];
+        const eventObjects = [];
+
+        function spawnParticle(x, y, z, vx, vy, vz, colorHex, life = 0.45) {
+            const p = new THREE.Mesh(
+                new THREE.BoxGeometry(0.18, 0.18, 0.18),
+                new THREE.MeshBasicMaterial({ color: colorHex })
+            );
+            p.position.set(x, y, z);
+            p.userData = { vx, vy, vz, life };
+            scene.add(p);
+            activeParticles.push(p);
+        }
+
+        function spawnImpactExplosion(x, y, z, colorHex) {
+            for (let i = 0; i < 16; i++) {
+                spawnParticle(
+                    x, y, z,
+                    (Math.random() - 0.5) * 14,
+                    3 + Math.random() * 8,
+                    (Math.random() - 0.5) * 14,
+                    colorHex,
+                    0.55
+                );
+            }
+        }
+
+        function createAlexTaxi() {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.75, 3.6), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35 }));
+            body.position.y = 0.55;
+            body.castShadow = true;
+            group.add(body);
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.58, 1.95), new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 }));
+            roof.position.set(0, 1.18, 0.1);
+            group.add(roof);
+            const speedBonus = Math.min(14, distance * 0.004);
+            group.userData = {
+                type: 'taxi',
+                halfW: 0.88,
+                halfD: 1.8,
+                speedOffset: 10 + speedBonus + Math.random() * 5,
+                nearMissed: false,
+                canSwerve: distance > 450 && Math.random() < Math.min(0.65, 0.18 + distance * 0.00018),
+                swerved: false,
+                targetLaneX: null
+            };
+            return group;
+        }
+
+        function createMicrobus() {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 1.85, 4.5), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 }));
+            body.position.y = 1.12;
+            body.castShadow = true;
+            group.add(body);
+            const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.99, 0.3, 4.52), new THREE.MeshStandardMaterial({ color: 0x0284c7 }));
+            stripe.position.y = 1.05;
+            group.add(stripe);
+            const speedBonus = Math.min(11, distance * 0.003);
+            group.userData = { type: 'microbus', halfW: 0.98, halfD: 2.25, speedOffset: 7 + speedBonus + Math.random() * 4, nearMissed: false };
+            return group;
+        }
+
+        function createMotorcycle() {
+            const group = new THREE.Group();
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.75, 1.85), new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.6 }));
+            frame.position.y = 0.62;
+            group.add(frame);
+            const rider = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.72, 0.45), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+            rider.position.set(0, 1.22, 0.1);
+            group.add(rider);
+            const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+            helmet.position.set(0, 1.72, 0.05);
+            group.add(helmet);
+            const speedBonus = Math.min(16, distance * 0.0045);
+            group.userData = { type: 'motorcycle', halfW: 0.42, halfD: 0.95, speedOffset: 14 + speedBonus + Math.random() * 5, weavePhase: Math.random() * 6, nearMissed: false };
+            return group;
+        }
+
+        function createRampTruck() {
+            const group = new THREE.Group();
+            const cab = new THREE.Mesh(new THREE.BoxGeometry(2.05, 1.75, 1.8), new THREE.MeshStandardMaterial({ color: 0x2563eb }));
+            cab.position.set(0, 1.05, -1.6);
+            group.add(cab);
+            const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.25, 3.6), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+            ramp.position.set(0, 0.65, 0.8);
+            ramp.rotation.x = 0.34;
+            group.add(ramp);
+            group.userData = { type: 'ramptruck', halfW: 1.08, halfD: 2.4, speedOffset: 5, launched: false };
+            return group;
+        }
+
+        function createMatabSpeedBump() {
+            const group = new THREE.Group();
+            const bump = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.3, 2.7, 14, 1, false, 0, Math.PI),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.65 })
+            );
+            bump.rotation.z = Math.PI / 2;
+            bump.rotation.y = Math.PI / 2;
+            bump.position.y = 0.02;
+            group.add(bump);
+            group.userData = { type: 'matab', halfW: 1.2, halfD: 0.35, speedOffset: 0, triggered: false };
+            return group;
+        }
+
+        function createPothole() {
+            const group = new THREE.Group();
+            const hole = new THREE.Mesh(new THREE.CircleGeometry(0.95, 16), new THREE.MeshBasicMaterial({ color: 0x090d16 }));
+            hole.rotation.x = -Math.PI / 2;
+            hole.position.y = 0.02;
+            group.add(hole);
+            const rim = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.05, 16), new THREE.MeshBasicMaterial({ color: 0x64748b, side: THREE.DoubleSide }));
+            rim.rotation.x = -Math.PI / 2;
+            rim.position.y = 0.025;
+            group.add(rim);
+            group.userData = { type: 'pothole', halfW: 0.85, halfD: 0.85, speedOffset: 0, triggered: false };
+            return group;
+        }
+
+        function createWaterPuddle() {
+            const group = new THREE.Group();
+            const puddle = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.35, 6.5),
+                new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.62 })
+            );
+            puddle.rotation.x = -Math.PI / 2;
+            puddle.position.y = 0.025;
+            group.add(puddle);
+            group.userData = { type: 'puddle', halfW: 1.1, halfD: 3.1, speedOffset: 0 };
+            return group;
+        }
+
+        function createMarketStall() {
+            const group = new THREE.Group();
+            const crate = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.95, 1.6), new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 }));
+            crate.position.y = 0.5;
+            group.add(crate);
+            const awning = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.14, 1.8), new THREE.MeshStandardMaterial({ color: 0xdc2626 }));
+            awning.position.set(0, 1.75, 0);
+            awning.rotation.x = 0.18;
+            group.add(awning);
+            group.userData = { type: 'market', halfW: 0.92, halfD: 0.8, speedOffset: 0, nearMissed: false };
+            return group;
+        }
+
+        function createCheckpointGate(zPos) {
+            const group = new THREE.Group();
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.4 });
+            [-4.6, 4.6].forEach(px => {
+                const p = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.5, 0.6), pillarMat);
+                p.position.set(px, 2.75, 0);
+                group.add(p);
+            });
+            const banner = new THREE.Mesh(new THREE.BoxGeometry(9.8, 1.1, 0.4), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+            banner.position.set(0, 5.2, 0);
+            group.add(banner);
+            group.position.set(0, 0, zPos);
+            return group;
+        }
+
+        function createCoinMesh() {
+            const coin = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.45, 0.45, 0.12, 16),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xd97706, emissiveIntensity: 0.35, metalness: 0.8, roughness: 0.2 })
+            );
+            coin.rotation.x = Math.PI / 2;
+            coin.userData = { type: 'coin' };
+            return coin;
+        }
+
+        function createPowerupMesh(pType) {
+            const colors = { shai: 0xef4444, magnet: 0xa855f7, shield: 0x06b6d4 };
+            const orb = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.55, 0),
+                new THREE.MeshStandardMaterial({ color: colors[pType] || 0x22c55e, emissive: colors[pType] || 0x22c55e, emissiveIntensity: 0.45 })
+            );
+            orb.userData = { type: pType };
+            return orb;
+        }
+
+        // ==========================================
+        // 6. GAMEPLAY STATE & DYNAMIC EVENTS
+        // ==========================================
+        let gameState = 'MENU';
+        let score = 0;
+        let distance = 0;
+        let runCoins = 0;
+        let combo = 1;
+        let comboTimer = 0;
+        let nearMissCount = 0;
+        let stuntsAndFaresCount = 0;
+
+        let currentLane = 1;
+        let playerX = 0;
+        let targetX = 0;
+        let playerY = 0;
+        let verticalVel = 0;
+        let isAirborne = false;
+        let barrelRollAngle = 0;
+        let isRolling = false;
+        let suspensionBounce = 0;
+
+        let baseSpeed = 26;
+        let currentSpeed = 26;
+        let isBoosting = false;
+        let isYoloBoosting = false;
+        let isBraking = false;
+        let boostFuel = 100;
+
+        let heatLevel = 1;
+        let checkpointTimeLeft = 14.0;
+        let checkpointGateMesh = null;
+        let gameOverReason = "Your TukTuk bumper couldn't take any more Alexandria chaos!";
+        let puddleSlipTimer = 0;
+        let potholeSpinTimer = 0;
+        let survivedSeconds = 0;
+
+        let feverMeter = 0;
+        let feverMode = false;
+        let feverTimer = 0;
+
+        let shieldTimer = 0;
+        let magnetTimer = 0;
+        let hornCooldown = 0;
+        let hornRingTimer = 0;
+        let shakeIntensity = 0;
+        let slowMoTimer = 0;
+
+        let hasPassenger = false;
+        let passengerName = 'Aunty Samira';
+        let passengerTimeLeft = 0;
+        let passengerDropoffSpawned = false;
+
+        let currentDistrictIdx = 0;
+        let activeEvent = null;
+        let nextEventTimer = 16;
+
+        let spawnTimer = 0;
+        let coinSpawnTimer = 0;
+        let passengerSpawnTimer = 10;
+
+        let timeModeIdx = 0;
+        const TIME_MODES = [
+            { name: 'Sunny Noon', icon: '☀️', sky: 0x38bdf8, fog: 0x7dd3fc, sun: 0xfffbeb, sunInt: 1.35, deep: 0x0369a1, shallow: 0x06b6d4, storm: false },
+            { name: 'Golden Sunset', icon: '🌅', sky: 0xf97316, fog: 0xfdba74, sun: 0xfef08a, sunInt: 1.25, deep: 0x1e3a8a, shallow: 0x0284c7, storm: false },
+            { name: 'Neon Night', icon: '🌙', sky: 0x090d16, fog: 0x0f172a, sun: 0x60a5fa, sunInt: 0.65, deep: 0x020617, shallow: 0x0369a1, storm: false },
+            { name: 'Alexandria Storm', icon: '⛈️', sky: 0x1e293b, fog: 0x334155, sun: 0x94a3b8, sunInt: 0.55, deep: 0x0f172a, shallow: 0x1e3a8a, storm: true }
+        ];
+
+        const MISSIONS = [
+            { id: 'nearmiss', label: 'Near-Miss 3 Cars', target: 3, reward: 45 },
+            { id: 'coins', label: 'Collect 25 LE Coins', target: 25, reward: 50 },
+            { id: 'jumps', label: 'Hit 2 Matabs / Ramps', target: 2, reward: 55 }
+        ];
+        let missionIdx = 0;
+        let missionProgress = 0;
+
+        function advanceMission(type, amount = 1) {
+            const m = MISSIONS[missionIdx];
+            if (!m || m.id !== type) return;
+            missionProgress += amount;
+            if (missionProgress >= m.target) {
+                runCoins += m.reward;
+                score += 400;
+                sound.playPowerup();
+                showToast(`🎯 MISSION COMPLETE: ${m.label}! +${m.reward} LE`, 'text-emerald-300');
+                missionIdx = (missionIdx + 1) % MISSIONS.length;
+                missionProgress = 0;
+            }
+            const mEl = document.getElementById('hud-mission');
+            const cur = MISSIONS[missionIdx];
+            if (mEl && cur) mEl.textContent = `🎯 ${cur.label} (${Math.min(cur.target, Math.floor(missionProgress))}/${cur.target})`;
+        }
+
+        function triggerScreenFlash(rgbaColor) {
+            const fl = document.getElementById('screen-flash');
+            if (!fl) return;
+            fl.style.backgroundColor = rgbaColor;
+            fl.style.opacity = '0.55';
+            setTimeout(() => { fl.style.opacity = '0'; }, 140);
+        }
+
+        let cameraModeIdx = 0;
+        const CAMERA_MODES = ['Chase', 'Close Action', 'Cockpit', 'Helicopter'];
+
+        let toastTimeout = null;
+        function showToast(msg, colorClass = 'text-amber-300') {
+            const box = document.getElementById('toast-box');
+            if (!box) return;
+            box.textContent = msg;
+            box.className = `opacity-100 transition-opacity duration-200 alex-glass rounded-full px-4 py-1 text-xs sm:text-sm font-black ${colorClass} text-center shadow-xl`;
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                box.classList.remove('opacity-100');
+                box.classList.add('opacity-0');
+            }, 2100);
+        }
+
+        function showDistrictBanner(title, sub) {
+            const ban = document.getElementById('district-banner');
+            const tEl = document.getElementById('district-banner-title');
+            const sEl = document.getElementById('district-banner-sub');
+            if (!ban || !tEl || !sEl) return;
+            tEl.textContent = title;
+            sEl.textContent = sub;
+            ban.classList.remove('hidden');
+            setTimeout(() => ban.classList.add('hidden'), 3200);
+        }
+
+        function addFever(amt) {
+            if (feverMode) return;
+            feverMeter = Math.min(100, feverMeter + amt);
+            if (feverMeter >= 100) {
+                feverMode = true;
+                feverTimer = 8.0;
+                sound.playPowerup();
+                sound.startBeatLoop();
+                triggerScreenFlash('rgba(34, 211, 238, 0.45)');
+                const fc = document.getElementById('fever-container');
+                if (fc) fc.classList.add('fever-glow');
+                showToast('🔥 MAZAAG FEVER OVERDRIVE! 2X SCORE & SMASH TRAFFIC!', 'text-cyan-300');
+            }
+        }
+
+        function changeLane(dir) {
+            if (gameState !== 'PLAYING') return;
+            if (isAirborne && !isRolling) {
+                isRolling = true;
+                barrelRollAngle = dir * 0.01;
+                sound.playSwoosh();
+                return;
+            }
+            const next = Math.max(0, Math.min(2, currentLane + dir));
+            if (next !== currentLane) {
+                currentLane = next;
+                targetX = LANES[currentLane];
+            }
+        }
+
+        function clearEventObjects() {
+            eventObjects.forEach(o => scene.remove(o));
+            eventObjects.length = 0;
+            activeEvent = null;
+            const evHud = document.getElementById('event-hud');
+            if (evHud) evHud.classList.add('hidden');
+        }
+
+        function startRandomDynamicEvent() {
+            clearEventObjects();
+            const roll = Math.random();
+            const evHud = document.getElementById('event-hud');
+            const evTitle = document.getElementById('event-title');
+            const evStatus = document.getElementById('event-status');
+            if (evHud) evHud.classList.remove('hidden');
+
+            if (roll < 0.38) {
+                // Kameen Police Checkpoint!
+                const openLane = Math.floor(Math.random() * 3);
+                const group = new THREE.Group();
+                for (let l = 0; l < 3; l++) {
+                    if (l === openLane) {
+                        const marker = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 6), new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.45 }));
+                        marker.rotation.x = -Math.PI / 2;
+                        marker.position.set(LANES[l], 0.03, 0);
+                        group.add(marker);
+                    } else {
+                        const car = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.1, 3.6), new THREE.MeshStandardMaterial({ color: 0x1e3a8a }));
+                        car.position.set(LANES[l], 0.6, 0);
+                        group.add(car);
+                        const siren = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.35), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+                        siren.position.set(LANES[l], 1.25, 0);
+                        group.add(siren);
+                    }
+                }
+                group.position.set(0, 0, -165);
+                scene.add(group);
+                eventObjects.push(group);
+                activeEvent = { type: 'kameen', group, openLane, zPos: -165, resolved: false };
+                if (evTitle) evTitle.textContent = '🚨 KAMEEN CHECKPOINT AHEAD!';
+                if (evStatus) evStatus.textContent = 'Take Green Lane OR Honk [SPACE]!';
+                showDistrictBanner('🚨 KAMEEN CHECKPOINT!', 'Slip into the Green Lane or Honk [SPACE] for Wasta!');
+            } else if (roll < 0.7) {
+                // Pedestrians Crossing!
+                const pedGroup = new THREE.Group();
+                for (let p = 0; p < 3; p++) {
+                    const person = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 1.35, 8), new THREE.MeshStandardMaterial({ color: p === 0 ? 0xe11d48 : 0x0284c7 }));
+                    person.position.set(-4 + p * 1.1, 0.7, 0);
+                    pedGroup.add(person);
+                }
+                pedGroup.position.set(0, 0, -140);
+                scene.add(pedGroup);
+                eventObjects.push(pedGroup);
+                activeEvent = { type: 'pedestrians', group: pedGroup };
+                if (evTitle) evTitle.textContent = '🚶‍♂️ PEDESTRIANS CROSSING!';
+                if (evStatus) evStatus.textContent = 'Dodge the crowd!';
+                showDistrictBanner('PEDESTRIANS CROSSING! 🚶‍♂️', 'Watch out for shoppers crossing the Corniche!');
+            } else {
+                // Al-Ittihad Football Fans!
+                const crowdLane = Math.floor(Math.random() * 3);
+                const crowdGroup = new THREE.Group();
+                for (let f = 0; f < 5; f++) {
+                    const fan = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 1.4, 8), new THREE.MeshStandardMaterial({ color: f % 2 === 0 ? 0x15803d : 0xffffff }));
+                    fan.position.set((Math.random() - 0.5) * 1.6, 0.7, (Math.random() - 0.5) * 4);
+                    crowdGroup.add(fan);
+                }
+                crowdGroup.position.set(LANES[crowdLane], 0, -145);
+                scene.add(crowdGroup);
+                eventObjects.push(crowdGroup);
+                activeEvent = { type: 'football', group: crowdGroup, lane: crowdLane };
+                if (evTitle) evTitle.textContent = '⚽ AL-ITTIHAD FANS PARTY!';
+                if (evStatus) evStatus.textContent = 'Lane blocked by supporters!';
+                showDistrictBanner('ITTIHAD FANS CELEBRATING! ⚽🟢', 'Switch lanes around the green-and-white crowd!');
+            }
+        }
+
+        function spawnTrafficWave() {
+            // Distance-driven multi-lane density (up to 2 lanes very frequently at long distances, always leaving 1 escape lane)
+            const doubleLaneChance = Math.min(0.92, 0.22 + distance * 0.00042);
+            const laneCount = Math.random() < doubleLaneChance ? 2 : 1;
+            const availableLanes = [0, 1, 2].sort(() => Math.random() - 0.5);
+            const staggerGap = Math.max(6.5, 15 - distance * 0.003);
+
+            for (let k = 0; k < laneCount; k++) {
+                const lane = availableLanes[k];
+                const r = Math.random();
+                let obs;
+                // Hazards & fast weavers become more common as distance increases
+                const hazardBoost = Math.min(0.18, distance * 0.00005);
+                if (r < 0.28 - hazardBoost * 0.5) obs = createAlexTaxi();
+                else if (r < 0.46 - hazardBoost * 0.5) obs = createMicrobus();
+                else if (r < 0.65) obs = createMotorcycle();
+                else if (r < 0.77 + hazardBoost * 0.4) obs = createPothole();
+                else if (r < 0.87 + hazardBoost * 0.3) obs = createWaterPuddle();
+                else if (r < 0.94 + hazardBoost * 0.3) obs = createMarketStall();
+                else if (Math.random() < 0.5) obs = createRampTruck();
+                else obs = createMatabSpeedBump();
+
+                obs.position.set(LANES[lane], 0, -155 - k * staggerGap);
+                scene.add(obs);
+                obstacles.push(obs);
+            }
+        }
+
+        function spawnCoinLine() {
+            const lane = Math.floor(Math.random() * 3);
+            const count = 4 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < count; i++) {
+                const coin = createCoinMesh();
+                coin.position.set(LANES[lane], 0.8, -140 - i * 4.2);
+                scene.add(coin);
+                collectibles.push(coin);
+            }
+            if (Math.random() < 0.35) {
+                const types = ['shai', 'magnet', 'shield'];
+                const pType = types[Math.floor(Math.random() * types.length)];
+                const orb = createPowerupMesh(pType);
+                orb.position.set(LANES[(lane + 1) % 3], 0.95, -148);
+                scene.add(orb);
+                collectibles.push(orb);
+            }
+        }
+
+        function spawnPassengerPickup() {
+            const lane = Math.floor(Math.random() * 3);
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(0.9, 1.35, 24),
+                new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(LANES[lane], 0.04, -145);
+            scene.add(ring);
+            passengerZones.push(ring);
+        }
+
+        function spawnDropoffZone() {
+            const lane = Math.floor(Math.random() * 3);
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(1.1, 1.65, 24),
+                new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(LANES[lane], 0.04, -155);
+            scene.add(ring);
+            dropoffZones.push(ring);
+            passengerDropoffSpawned = true;
+        }
+
+        function clearEntities() {
+            obstacles.forEach(o => scene.remove(o));
+            obstacles.length = 0;
+            collectibles.forEach(c => scene.remove(c));
+            collectibles.length = 0;
+            passengerZones.forEach(p => scene.remove(p));
+            passengerZones.length = 0;
+            dropoffZones.forEach(d => scene.remove(d));
+            dropoffZones.length = 0;
+            activeParticles.forEach(p => scene.remove(p));
+            activeParticles.length = 0;
+            if (checkpointGateMesh) {
+                scene.remove(checkpointGateMesh);
+                checkpointGateMesh = null;
+            }
+            clearEventObjects();
+        }
+
+        function updateHeatUI() {
+            const heatEl = document.getElementById('hud-heat');
+            if (heatEl) heatEl.textContent = `🔥 HEAT ${heatLevel}★`;
+        }
+
+        function updateEffectPills() {
+            const wrap = document.getElementById('effects-pills');
+            if (!wrap) return;
+            const pills = [];
+            if (shieldTimer > 0) pills.push(`<span class="bg-cyan-500 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full">🧿 Khamsa ${shieldTimer.toFixed(1)}s</span>`);
+            if (magnetTimer > 0) pills.push(`<span class="bg-purple-500 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full">🧲 Magnet ${magnetTimer.toFixed(1)}s</span>`);
+            if (puddleSlipTimer > 0) pills.push(`<span class="bg-sky-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full">🌊 Low Traction ${puddleSlipTimer.toFixed(1)}s</span>`);
+            wrap.innerHTML = pills.join('');
+        }
+
+        function triggerGameOver(reason = "Your TukTuk bumper couldn't take any more Alexandria chaos!") {
+            gameState = 'GAMEOVER';
+            gameOverReason = reason;
+            sound.stopBeatLoop();
+            sound.playCrash();
+            spawnImpactExplosion(playerX, 1.0, 0, 0xef4444);
+
+            const reasonEl = document.querySelector('#gameover-modal p');
+            if (reasonEl) reasonEl.textContent = gameOverReason;
+
+            const activeModel = TUKTUK_MODELS.find(m => m.id === saveData.selectedModel) || TUKTUK_MODELS[0];
+            const modelCoinBonus = activeModel.id === 'golden' ? 2.0 : (activeModel.id === 'delivery' ? 1.25 : 1.0);
+            const earnedLE = Math.round(runCoins * modelCoinBonus);
+            const finalScore = Math.floor(score);
+            const isNewRecord = finalScore > saveData.highScore;
+            if (isNewRecord) saveData.highScore = finalScore;
+
+            // Only bank run rewards if revive won't be used or upon final end; if revived, adjust delta cleanly
+            if (!reviveUsedThisRun) {
+                saveData.bankCoins += earnedLE;
+                saveData.careerDistance += distance;
+                saveData.dailyStats.nearMisses += nearMissCount;
+                saveData.dailyStats.distance += distance;
+                saveData.dailyStats.survivedSec += survivedSeconds;
+            }
+
+            saveData.leaderboard.push({ name: `You (${activeModel.icon})`, score: finalScore, dist: Math.floor(distance) });
+            saveData.leaderboard.sort((a, b) => b.score - a.score);
+            saveData.leaderboard = saveData.leaderboard.slice(0, 5);
+            persistSaveData();
+
+            document.getElementById('over-score').textContent = finalScore.toLocaleString();
+            document.getElementById('over-distance').textContent = `${Math.floor(distance)} m`;
+            document.getElementById('over-coins').textContent = `+${earnedLE} LE`;
+            document.getElementById('over-stunts').textContent = `${nearMissCount + stuntsAndFaresCount}`;
+            const recBadge = document.getElementById('new-record-badge');
+            if (recBadge) {
+                if (isNewRecord) recBadge.classList.remove('hidden');
+                else recBadge.classList.add('hidden');
+            }
+            document.getElementById('gameover-modal').classList.remove('hidden');
+            startReviveOfferCountdown();
+            refreshGoogleAdSlots('gameover');
+        }
+
+        function applySelectedPaint() {
+            const activeModel = TUKTUK_MODELS.find(m => m.id === saveData.selectedModel) || TUKTUK_MODELS[0];
+            const activeSkin = SKINS_CATALOG.find(s => s.id === saveData.selectedSkin) || SKINS_CATALOG[0];
+            if (saveData.selectedSkin && saveData.selectedSkin !== 'default') {
+                primaryPaintMat.color.setHex(activeSkin.primary);
+                accentPaintMat.color.setHex(activeSkin.accent);
+            } else {
+                primaryPaintMat.color.setHex(activeModel.primary);
+                accentPaintMat.color.setHex(activeModel.accent);
+            }
+        }
+
+        // ==========================================
+        // 7. GLOBAL UI & CONTROL HANDLERS
+        // ==========================================
+        startGame = function() {
+            sound.init();
+            stopReviveOfferCountdown();
+            reviveUsedThisRun = false;
+            clearEntities();
+
+            gameState = 'PLAYING';
+            score = 0;
+            distance = 0;
+            runCoins = 0;
+            combo = 1;
+            comboTimer = 0;
+            nearMissCount = 0;
+            stuntsAndFaresCount = 0;
+
+            currentLane = 1;
+            playerX = 0;
+            targetX = 0;
+            playerY = 0;
+            verticalVel = 0;
+            isAirborne = false;
+            barrelRollAngle = 0;
+            isRolling = false;
+
+            baseSpeed = 26;
+            currentSpeed = 26;
+            isBoosting = false;
+            isYoloBoosting = false;
+            isBraking = false;
+            boostFuel = 100;
+            survivedSeconds = 0;
+            puddleSlipTimer = 0;
+            potholeSpinTimer = 0;
+
+            feverMeter = 0;
+            feverMode = false;
+            feverTimer = 0;
+            shieldTimer = 0;
+            magnetTimer = 0;
+            hornCooldown = 0;
+            const cdLbl = document.getElementById('horn-cd-label');
+            if (cdLbl) cdLbl.classList.add('hidden');
+            hasPassenger = false;
+            passengerDropoffSpawned = false;
+            document.getElementById('passenger-hud').classList.add('hidden');
+            currentDistrictIdx = 0;
+            nextEventTimer = 14;
+
+            applySelectedPaint();
+            heatLevel = 1;
+            updateHeatUI();
+
+            checkpointTimeLeft = 14.0;
+            checkpointGateMesh = createCheckpointGate(-265);
+            scene.add(checkpointGateMesh);
+
+            document.getElementById('start-modal').classList.add('hidden');
+            document.getElementById('gameover-modal').classList.add('hidden');
+            document.getElementById('pause-modal').classList.add('hidden');
+            document.getElementById('garage-modal').classList.add('hidden');
+
+            sound.startBeatLoop();
+            showDistrictBanner('QAITBAY & ANFOUSHI 🛺', 'Reach each green checkpoint gate before time runs out!');
+        };
+
+        returnToMenu = function() {
+            gameState = 'MENU';
+            stopReviveOfferCountdown();
+            sound.stopBeatLoop();
+            clearEntities();
+            document.getElementById('pause-modal').classList.add('hidden');
+            document.getElementById('gameover-modal').classList.add('hidden');
+            document.getElementById('start-modal').classList.remove('hidden');
+            updateBankUI();
+            refreshGoogleAdSlots('menu');
+        };
+
+        togglePause = function() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                sound.stopBeatLoop();
+                document.getElementById('pause-modal').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                sound.startBeatLoop();
+                document.getElementById('pause-modal').classList.add('hidden');
+            }
+        };
+
+        cycleCameraMode = function() {
+            cameraModeIdx = (cameraModeIdx + 1) % CAMERA_MODES.length;
+            showToast(`🎥 Camera: ${CAMERA_MODES[cameraModeIdx]}`, 'text-sky-300');
+        };
+
+        cycleTimeOfDay = function() {
+            timeModeIdx = (timeModeIdx + 1) % TIME_MODES.length;
+            const tm = TIME_MODES[timeModeIdx];
+            skyMat.color.setHex(tm.sky);
+            scene.fog.color.setHex(tm.fog);
+            sunLight.color.setHex(tm.sun);
+            sunLight.intensity = tm.sunInt;
+            seaUniforms.uDeepColor.value.setHex(tm.deep);
+            seaUniforms.uShallowColor.value.setHex(tm.shallow);
+            rainPoints.visible = !!tm.storm;
+            roadMat.roughness = tm.storm ? 0.22 : 0.78;
+            roadMat.metalness = tm.storm ? 0.55 : 0.12;
+            const btn = document.getElementById('btn-time');
+            if (btn) btn.textContent = tm.icon;
+            showToast(`${tm.icon} ${tm.name}`, 'text-amber-300');
+        };
+
+        toggleMute = function() {
+            sound.init();
+            sound.muted = !sound.muted;
+            const btn = document.getElementById('btn-mute');
+            if (btn) btn.textContent = sound.muted ? '🔇' : '🔊';
+            if (sound.muted) sound.stopBeatLoop();
+            else if (gameState === 'PLAYING') sound.startBeatLoop();
+        };
+
+        let radioIdx = 0;
+        cycleRadioStation = function() {
+            sound.init();
+            radioIdx = (radioIdx + 1) % RADIO_STATIONS.length;
+            const st = RADIO_STATIONS[radioIdx];
+            const rLabel = document.getElementById('radio-label');
+            if (rLabel) rLabel.textContent = st.name;
+
+            if (st.id === 'off') {
+                sound.musicEnabled = false;
+                sound.stopBeatLoop();
+                showToast('📻 TukTuk Radio OFF', 'text-slate-300');
+            } else {
+                sound.musicEnabled = true;
+                if (gameState === 'PLAYING') sound.setBeatTempo(st.tempo);
+                showToast(`📻 Radio: ${st.name}`, 'text-amber-300');
+            }
+        };
+        toggleMusic = cycleRadioStation;
+
+        triggerHorn = function() {
+            sound.init();
+            if (hornCooldown > 0) {
+                showToast(`📯 Horn cooling down (${hornCooldown.toFixed(1)}s)`, 'text-slate-300');
+                return;
+            }
+            hornCooldown = 3.0;
+            hornRingTimer = 0.55;
+            sound.playHorn(saveData.selectedHorn || 'mahraganat');
+
+            // Wasta Escape at Kameen Police Checkpoint!
+            if (activeEvent && activeEvent.type === 'kameen' && !activeEvent.resolved && activeEvent.zPos > -95) {
+                activeEvent.resolved = true;
+                runCoins += 70;
+                score += 600;
+                stuntsAndFaresCount++;
+                clearEventObjects();
+                showToast('📯 WASTA SALAM HONK! Officer waved you through! +70 LE', 'text-emerald-300');
+                return;
+            }
+
+            // Cheer football crowd or alert pedestrians
+            if (activeEvent && (activeEvent.type === 'football' || activeEvent.type === 'pedestrians')) {
+                score += 150;
+                showToast('📯 "YALLA YA REGALA!" Crowd cheered!', 'text-amber-300');
+            } else {
+                showToast('📯 BEEP BEEP! Clear the Corniche!', 'text-amber-300');
+            }
+        };
+
+        // ==========================================
+        // 8. OSTA GARAGE RENDERING
+        // ==========================================
+        function renderGarage() {
+            updateBankUI();
+
+            const { current, next } = getCurrentOstaRank();
+            const rTitle = document.getElementById('garage-rank-title');
+            const rDist = document.getElementById('garage-career-dist');
+            const rBar = document.getElementById('garage-rank-bar');
+            const rPerk = document.getElementById('garage-rank-perk');
+            if (rTitle) rTitle.textContent = current.title;
+            if (rDist) rDist.textContent = `${Math.floor(saveData.careerDistance).toLocaleString()} m Career`;
+            if (rPerk) rPerk.textContent = `Perk: +${Math.round(current.tipBonus * 100)}% Passenger Fare Bonus`;
+            if (rBar) {
+                const pct = next ? Math.min(100, ((saveData.careerDistance - current.minDist) / (next.minDist - current.minDist)) * 100) : 100;
+                rBar.style.width = `${pct}%`;
+            }
+
+            // 6 TukTuk Models
+            const modelsWrap = document.getElementById('garage-models');
+            if (modelsWrap) {
+                modelsWrap.innerHTML = '';
+                TUKTUK_MODELS.forEach(m => {
+                    const owned = saveData.unlockedModels.includes(m.id);
+                    const selected = saveData.selectedModel === m.id;
+                    const btn = document.createElement('button');
+                    btn.className = `p-2.5 rounded-2xl border-2 text-left transition cursor-pointer ${
+                        selected ? 'bg-amber-200 border-amber-600 shadow-inner' : 'bg-white/95 border-slate-300 hover:border-amber-400'
+                    }`;
+                    btn.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="text-xl">${m.icon}</span>
+                            <span class="text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                selected ? 'bg-amber-600 text-white' : owned ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                            }">${selected ? 'DRIVING' : owned ? 'SELECT' : m.price + ' LE'}</span>
+                        </div>
+                        <div class="font-black text-xs text-slate-900 mt-1">${m.name}</div>
+                        <div class="text-[10px] text-slate-600 leading-tight mt-0.5">${m.perk}</div>
+                    `;
+                    btn.onclick = () => {
+                        if (owned) {
+                            saveData.selectedModel = m.id;
+                            saveData.selectedSkin = 'default';
+                            applySelectedPaint();
+                            persistSaveData();
+                            renderGarage();
+                        } else if (saveData.bankCoins >= m.price) {
+                            saveData.bankCoins -= m.price;
+                            saveData.unlockedModels.push(m.id);
+                            saveData.selectedModel = m.id;
+                            saveData.selectedSkin = 'default';
+                            applySelectedPaint();
+                            sound.playPowerup();
+                            persistSaveData();
+                            renderGarage();
+                        } else {
+                            showToast('Need more LE from runs!', 'text-red-400');
+                        }
+                    };
+                    modelsWrap.appendChild(btn);
+                });
+            }
+
+            // Daily Challenges & Leaderboard
+            const dailyWrap = document.getElementById('garage-daily-list');
+            if (dailyWrap) {
+                const ds = saveData.dailyStats || { nearMisses: 0, distance: 0, survivedSec: 0 };
+                dailyWrap.innerHTML = `
+                    <div class="flex justify-between font-bold text-slate-700"><span>⚡ 20 Near-Misses</span><span>${Math.min(20, ds.nearMisses)}/20</span></div>
+                    <div class="flex justify-between font-bold text-slate-700"><span>⏱️ Survive 3 Mins</span><span>${Math.min(180, Math.floor(ds.survivedSec))}s/180s</span></div>
+                    <div class="flex justify-between font-bold text-slate-700"><span>🛣️ Drive 2,500m</span><span>${Math.min(2500, Math.floor(ds.distance))}/2500m</span></div>
+                `;
+            }
+
+            const lbWrap = document.getElementById('garage-leaderboard');
+            if (lbWrap) {
+                lbWrap.innerHTML = (saveData.leaderboard || []).slice(0, 3).map((entry, idx) => `
+                    <div class="flex justify-between font-bold text-slate-800">
+                        <span>#${idx + 1} ${entry.name}</span>
+                        <span class="text-sky-700">${entry.score.toLocaleString()} (${entry.dist}m)</span>
+                    </div>
+                `).join('');
+            }
+
+            // Upgrades
+            const upgWrap = document.getElementById('garage-upgrades');
+            if (upgWrap) {
+                upgWrap.innerHTML = '';
+                UPGRADES_CATALOG.forEach(u => {
+                    const lvl = saveData.upgrades[u.id] || 1;
+                    const maxed = lvl >= u.maxLevel;
+                    const cost = u.baseCost * lvl;
+                    const btn = document.createElement('button');
+                    btn.className = 'p-2.5 rounded-2xl bg-white/95 border-2 border-slate-300 hover:border-amber-500 text-left flex items-center justify-between gap-2 cursor-pointer';
+                    btn.innerHTML = `
+                        <div>
+                            <div class="font-black text-xs text-slate-900">${u.name} <span class="text-amber-700">Lv.${lvl}/${u.maxLevel}</span></div>
+                            <div class="text-[10px] text-slate-600">${u.desc}</div>
+                        </div>
+                        <span class="text-[10px] font-black px-2 py-1 rounded-xl ${maxed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-400 text-slate-950'}">
+                            ${maxed ? 'MAX' : cost + ' LE'}
+                        </span>
+                    `;
+                    btn.onclick = () => {
+                        if (maxed) return;
+                        if (saveData.bankCoins >= cost) {
+                            saveData.bankCoins -= cost;
+                            saveData.upgrades[u.id] = lvl + 1;
+                            sound.playPowerup();
+                            persistSaveData();
+                            renderGarage();
+                        } else {
+                            showToast('Not enough LE!', 'text-red-400');
+                        }
+                    };
+                    upgWrap.appendChild(btn);
+                });
+            }
+
+            // Liveries
+            const skinsWrap = document.getElementById('garage-skins');
+            if (skinsWrap) {
+                skinsWrap.innerHTML = '';
+                SKINS_CATALOG.forEach(s => {
+                    const owned = saveData.unlockedSkins.includes(s.id);
+                    const selected = saveData.selectedSkin === s.id;
+                    const btn = document.createElement('button');
+                    btn.className = `p-2 rounded-2xl border-2 text-left cursor-pointer ${selected ? 'bg-amber-200 border-amber-600' : 'bg-white/95 border-slate-300'}`;
+                    btn.innerHTML = `
+                        <div class="font-black text-xs text-slate-900">${s.name}</div>
+                        <div class="text-[10px] font-bold text-amber-800 mt-0.5">${selected ? 'EQUIPPED' : owned ? 'SELECT' : s.price + ' LE'}</div>
+                    `;
+                    btn.onclick = () => {
+                        if (owned) {
+                            saveData.selectedSkin = s.id;
+                            applySelectedPaint();
+                            persistSaveData();
+                            renderGarage();
+                        } else if (saveData.bankCoins >= s.price) {
+                            saveData.bankCoins -= s.price;
+                            saveData.unlockedSkins.push(s.id);
+                            saveData.selectedSkin = s.id;
+                            applySelectedPaint();
+                            sound.playPowerup();
+                            persistSaveData();
+                            renderGarage();
+                        }
+                    };
+                    skinsWrap.appendChild(btn);
+                });
+            }
+
+            // Horns
+            const hornsWrap = document.getElementById('garage-horns');
+            if (hornsWrap) {
+                hornsWrap.innerHTML = '';
+                HORNS_CATALOG.forEach(h => {
+                    const owned = saveData.unlockedHorns.includes(h.id);
+                    const selected = saveData.selectedHorn === h.id;
+                    const btn = document.createElement('button');
+                    btn.className = `p-2 rounded-2xl border-2 text-left cursor-pointer ${selected ? 'bg-amber-200 border-amber-600' : 'bg-white/95 border-slate-300'}`;
+                    btn.innerHTML = `
+                        <div class="font-black text-xs text-slate-900">${h.icon} ${h.name}</div>
+                        <div class="text-[10px] font-bold text-amber-800 mt-0.5">${selected ? 'EQUIPPED' : owned ? 'TEST & EQUIP' : h.price + ' LE'}</div>
+                    `;
+                    btn.onclick = () => {
+                        sound.init();
+                        if (owned) {
+                            saveData.selectedHorn = h.id;
+                            sound.playHorn(h.id);
+                            persistSaveData();
+                            renderGarage();
+                        } else if (saveData.bankCoins >= h.price) {
+                            saveData.bankCoins -= h.price;
+                            saveData.unlockedHorns.push(h.id);
+                            saveData.selectedHorn = h.id;
+                            sound.playHorn(h.id);
+                            persistSaveData();
+                            renderGarage();
+                        }
+                    };
+                    hornsWrap.appendChild(btn);
+                });
+            }
+        }
+
+        openGarage = function() {
+            sound.init();
+            renderGarage();
+            document.getElementById('garage-modal').classList.remove('hidden');
+        };
+
+        closeGarage = function() {
+            document.getElementById('garage-modal').classList.add('hidden');
+        };
+
+        function renderAdManagerSlots() {
+            const grid = document.getElementById('ads-slots-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            TRADITIONAL_ALEX_ADS.forEach((slot) => {
+                const currentVal = globalCloudAds[slot.id] || '';
+                const card = document.createElement('div');
+                card.className = 'bg-white/95 rounded-2xl p-3 border-2 border-amber-400 space-y-2';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-1">
+                        <div class="font-black text-xs text-slate-900">${slot.place}</div>
+                        ${currentVal ? '<span class="text-[9px] font-black bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">🌐 LIVE</span>' : ''}
+                    </div>
+                    <div class="text-[10px] text-slate-600 font-bold">${slot.tagline}</div>
+                    <input id="ad-url-${slot.id}" type="text" value="${currentVal.startsWith('data:') ? '' : currentVal}" placeholder="Paste global image URL (https://...)" class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs text-slate-900 font-bold">
+                    <div class="flex items-center gap-1.5">
+                        <label class="flex-1 text-center py-1.5 px-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] cursor-pointer">
+                            📁 UPLOAD GLOBAL PHOTO
+                            <input type="file" accept="image/*" class="hidden" data-ad-file="${slot.id}">
+                        </label>
+                        <button data-ad-save="${slot.id}" class="py-1.5 px-2.5 rounded-xl bg-sky-900 hover:bg-sky-800 text-amber-300 font-black text-[10px] cursor-pointer">
+                            SET URL
+                        </button>
+                        <button data-ad-reset="${slot.id}" class="py-1.5 px-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-[10px] cursor-pointer">
+                            RESET
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+
+                const fileInput = card.querySelector(`[data-ad-file="${slot.id}"]`);
+                fileInput.addEventListener('change', (e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (!file) return;
+                    compressImageFileToDataUrl(file, async (compressedDataUrl) => {
+                        await saveGlobalCloudAd(slot.id, compressedDataUrl);
+                        renderAdManagerSlots();
+                        showToast(`🌐 Published global photo to ${slot.place}!`, 'text-emerald-300');
+                    });
+                });
+
+                const saveBtn = card.querySelector(`[data-ad-save="${slot.id}"]`);
+                saveBtn.addEventListener('click', async () => {
+                    const urlInput = document.getElementById(`ad-url-${slot.id}`);
+                    const url = urlInput ? urlInput.value.trim() : '';
+                    if (!url) return;
+                    await saveGlobalCloudAd(slot.id, url);
+                    renderAdManagerSlots();
+                    showToast(`🌐 Published global URL to ${slot.place}!`, 'text-emerald-300');
+                });
+
+                const resetBtn = card.querySelector(`[data-ad-reset="${slot.id}"]`);
+                resetBtn.addEventListener('click', async () => {
+                    const urlInput = document.getElementById(`ad-url-${slot.id}`);
+                    if (urlInput) urlInput.value = slot.globalUrl || '';
+                    await resetGlobalCloudAd(slot.id);
+                    renderAdManagerSlots();
+                    showToast(`🔄 Reset ${slot.place} globally`, 'text-amber-300');
+                });
+            });
+        }
+
+        openAdManager = function() {
+            document.getElementById('ads-modal').classList.remove('hidden');
+            document.getElementById('ads-auth-error').classList.add('hidden');
+            if (adManagerUnlocked) {
+                document.getElementById('ads-auth-gate').classList.add('hidden');
+                document.getElementById('ads-manager-content').classList.remove('hidden');
+                renderAdManagerSlots();
+            } else {
+                document.getElementById('ads-auth-gate').classList.remove('hidden');
+                document.getElementById('ads-manager-content').classList.add('hidden');
+                const inp = document.getElementById('ads-password-input');
+                if (inp) { inp.value = ''; inp.focus(); }
+            }
+        };
+
+        closeAdManager = function() {
+            document.getElementById('ads-modal').classList.add('hidden');
+        };
+
+        verifyAdPassword = function() {
+            const inp = document.getElementById('ads-password-input');
+            const err = document.getElementById('ads-auth-error');
+            if (inp && inp.value.trim() === AD_ADMIN_PASSWORD) {
+                adManagerUnlocked = true;
+                if (err) err.classList.add('hidden');
+                document.getElementById('ads-auth-gate').classList.add('hidden');
+                document.getElementById('ads-manager-content').classList.remove('hidden');
+                renderAdManagerSlots();
+                sound.playPowerup();
+                showToast('🔓 Ad Sign Manager Unlocked!', 'text-emerald-300');
+            } else {
+                if (err) err.classList.remove('hidden');
+                sound.playCrash();
+            }
+        };
+
+        Object.assign(window, {
+            startGame,
+            returnToMenu,
+            togglePause,
+            cycleCameraMode,
+            cycleTimeOfDay,
+            toggleMute,
+            toggleMusic,
+            cycleRadioStation,
+            openGarage,
+            closeGarage,
+            triggerHorn,
+            openAdManager,
+            closeAdManager,
+            verifyAdPassword,
+            watchAdToRevive
+        });
+
+        // ==========================================
+        // 9. KEYBOARD, TOUCH & RESIZE LISTENERS
+        // ==========================================
+        window.addEventListener('keydown', (e) => {
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                if (e.key === 'Enter' && document.activeElement.id === 'ads-password-input') verifyAdPassword();
+                return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') changeLane(-1);
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') changeLane(1);
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === 'Shift') isBoosting = true;
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') isBraking = true;
+            if (e.key === ' ') { e.preventDefault(); triggerHorn(); }
+            if (e.key === 'c' || e.key === 'C') cycleCameraMode();
+            if (e.key === 'r' || e.key === 'R') cycleRadioStation();
+            if (e.key === 'p' || e.key === 'P') togglePause();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === 'Shift') isBoosting = false;
+            if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') isBraking = false;
+        });
+
+        let touchStartX = 0;
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        window.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length > 0) {
+                const dx = e.changedTouches[0].clientX - touchStartX;
+                if (Math.abs(dx) > 36) changeLane(dx > 0 ? 1 : -1);
+            }
+        }, { passive: true });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateBankUI();
+            applySelectedPaint();
+            refreshGoogleAdSlots('menu');
+            const cLeft = document.getElementById('ctrl-left');
+            const cRight = document.getElementById('ctrl-right');
+            const cBoost = document.getElementById('ctrl-boost');
+            const cYolo = document.getElementById('ctrl-yolo');
+            const cBrake = document.getElementById('ctrl-brake');
+
+            if (cLeft) cLeft.addEventListener('pointerdown', (e) => { e.stopPropagation(); changeLane(-1); });
+            if (cRight) cRight.addEventListener('pointerdown', (e) => { e.stopPropagation(); changeLane(1); });
+
+            if (cBoost) {
+                cBoost.addEventListener('pointerdown', (e) => { e.stopPropagation(); isBoosting = true; });
+                cBoost.addEventListener('pointerup', () => { isBoosting = false; });
+                cBoost.addEventListener('pointercancel', () => { isBoosting = false; });
+                cBoost.addEventListener('pointerleave', () => { isBoosting = false; });
+            }
+            if (cYolo) {
+                cYolo.addEventListener('pointerdown', (e) => { e.stopPropagation(); isYoloBoosting = true; showToast('🚀 YOLO BOOST ENGAGED!!', 'text-yellow-300'); });
+                cYolo.addEventListener('pointerup', () => { isYoloBoosting = false; });
+                cYolo.addEventListener('pointercancel', () => { isYoloBoosting = false; });
+                cYolo.addEventListener('pointerleave', () => { isYoloBoosting = false; });
+            }
+            if (cBrake) {
+                cBrake.addEventListener('pointerdown', (e) => { e.stopPropagation(); isBraking = true; });
+                cBrake.addEventListener('pointerup', () => { isBraking = false; });
+                cBrake.addEventListener('pointercancel', () => { isBraking = false; });
+                cBrake.addEventListener('pointerleave', () => { isBraking = false; });
+            }
+            window.addEventListener('pointerup', () => {
+                isBoosting = false;
+                isYoloBoosting = false;
+                isBraking = false;
+            });
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ==========================================
+        // 10. MAIN 60FPS WEBGL RENDER & GAME LOOP
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const rawDt = Math.min(clock.getDelta(), 0.05);
+            const elapsed = clock.getElapsedTime();
+            seaUniforms.uTime.value = elapsed;
+
+            if (gameState !== 'PLAYING') {
+                sound.updateEngine(0, false, false, false);
+                // Idle Showcase Orbit on Start / Pause / GameOver
+                playerGroup.position.set(0, Math.sin(elapsed * 3) * 0.04, 0);
+                tuktukBodyGroup.rotation.y = Math.sin(elapsed * 0.8) * 0.25;
+                camera.position.set(Math.sin(elapsed * 0.4) * 3.2, 3.6, 7.6);
+                camera.lookAt(0, 1.1, -4);
+                renderer.render(scene, camera);
+                return;
+            }
+
+            if (slowMoTimer > 0) slowMoTimer = Math.max(0, slowMoTimer - rawDt);
+            const dt = slowMoTimer > 0 ? rawDt * 0.45 : rawDt;
+
+            // Update 2-Stroke Engine Sound & Storm Weather
+            sound.updateEngine(currentSpeed, true, isBoosting || isYoloBoosting, feverMode);
+            if (TIME_MODES[timeModeIdx].storm) {
+                const posArr = rainPoints.geometry.attributes.position.array;
+                for (let r = 0; r < rainCount; r++) {
+                    posArr[r * 3 + 1] -= 32 * dt;
+                    posArr[r * 3 + 2] += 18 * dt;
+                    if (posArr[r * 3 + 1] < 0) {
+                        posArr[r * 3 + 1] = 22;
+                        posArr[r * 3 + 2] = -Math.random() * 120 + 10;
+                    }
+                }
+                rainPoints.geometry.attributes.position.needsUpdate = true;
+                if (Math.random() < 0.004) {
+                    triggerScreenFlash('rgba(255, 255, 255, 0.7)');
+                    sound.playThunder();
+                }
+            }
+            // Difficulty Escalation & Heat Level (scales continuously with distance)
+            survivedSeconds += dt;
+            const difficultyTier = 1 + Math.floor(distance / 350);
+            const newHeat = Math.min(10, difficultyTier);
+            if (newHeat !== heatLevel) {
+                heatLevel = newHeat;
+                updateHeatUI();
+                showToast(`🚨 HEAT LEVEL ${heatLevel}★ (${Math.floor(distance)}m)! TRAFFIC INTENSIFIES!`, 'text-rose-400');
+            }
+
+            const currentModel = TUKTUK_MODELS.find(m => m.id === saveData.selectedModel) || TUKTUK_MODELS[0];
+            const speedUpgMult = 1 + ((saveData.upgrades.topSpeed || 1) - 1) * 0.05;
+            const accelUpgMult = 1 + ((saveData.upgrades.accel || 1) - 1) * 0.12;
+            // Noticeable progressive speedup as distance increases
+            const distanceSpeedGain = distance * 0.032 + Math.pow(distance / 300, 1.25) * 4.5;
+            baseSpeed = Math.min(135, (28 + distanceSpeedGain) * currentModel.speedMult * speedUpgMult);
+
+            const nitroDrain = Math.max(12, 26 - (saveData.upgrades.nitroCap || 1) * 2.5);
+            const nitroRegen = 10 + (saveData.upgrades.nitroCap || 1) * 2.2;
+
+            if ((isBoosting || isYoloBoosting) && boostFuel > 0) {
+                boostFuel = Math.max(0, boostFuel - nitroDrain * (isYoloBoosting ? 1.35 : 1.0) * dt);
+                if (boostFuel <= 0) { isBoosting = false; isYoloBoosting = false; }
+            } else {
+                boostFuel = Math.min(100, boostFuel + nitroRegen * dt);
+            }
+
+            let targetSpeed = baseSpeed;
+            if (isYoloBoosting && boostFuel > 1) targetSpeed = baseSpeed * 1.28 + 10;
+            else if (feverMode) targetSpeed = baseSpeed * 1.20 + 7;
+            else if (isBoosting && boostFuel > 1) targetSpeed = baseSpeed * 1.16 + 5;
+            else if (isBraking) targetSpeed = Math.max(14, baseSpeed * (0.58 - (saveData.upgrades.brake || 1) * 0.03));
+
+            currentSpeed += (targetSpeed - currentSpeed) * 6 * accelUpgMult * dt;
+            const dz = currentSpeed * dt;
+            distance += dz * 0.45;
+            score += dz * (feverMode ? 3.2 : 1.6) * combo;
+
+            // Checkpoint Gate & Timer (use rawDt so slow-mo doesn't stall the clock)
+            checkpointTimeLeft -= rawDt;
+            const cpTimerEl = document.getElementById('hud-checkpoint-timer');
+            const cpPillEl = document.getElementById('hud-checkpoint-pill');
+            if (cpTimerEl) {
+                cpTimerEl.textContent = `${Math.max(0, checkpointTimeLeft).toFixed(1)}s`;
+                cpTimerEl.className = checkpointTimeLeft < 4.5
+                    ? 'title-font text-sm sm:text-base text-rose-400 animate-pulse leading-none'
+                    : 'title-font text-sm sm:text-base text-white leading-none';
+            }
+            if (cpPillEl) {
+                cpPillEl.className = checkpointTimeLeft < 4.5
+                    ? 'alex-glass rounded-2xl px-2.5 py-1.5 text-white border-2 border-rose-500 animate-pulse'
+                    : 'alex-glass rounded-2xl px-2.5 py-1.5 text-white border border-emerald-400/50';
+            }
+            if (checkpointGateMesh) {
+                checkpointGateMesh.position.z += dz;
+                if (checkpointGateMesh.position.z >= 0) {
+                    const gateBonusSec = Math.max(6.5, 11.5 - distance * 0.0022);
+                    checkpointTimeLeft = Math.min(18.0, checkpointTimeLeft + gateBonusSec);
+                    score += 300 + heatLevel * 50;
+                    sound.playPowerup();
+                    triggerScreenFlash('rgba(16, 185, 129, 0.35)');
+                    showToast(`🏁 CHECKPOINT REACHED! +${gateBonusSec.toFixed(1)}s`, 'text-emerald-300');
+                    checkpointGateMesh.position.z = -280 - Math.min(220, distance * 0.06);
+                }
+            }
+            if (checkpointTimeLeft <= 0) {
+                checkpointTimeLeft = 0;
+                showToast('⌛ TIME EXPIRED! MISSED THE CHECKPOINT!', 'text-rose-400');
+                triggerGameOver('⌛ TIME UP! You ran out of time before reaching the next Corniche checkpoint gate!');
+                return;
+            }
+
+            // Horn Cooldown & Visual Ring
+            if (hornCooldown > 0) {
+                hornCooldown = Math.max(0, hornCooldown - dt);
+                const cdLbl = document.getElementById('horn-cd-label');
+                if (cdLbl) {
+                    if (hornCooldown > 0) {
+                        cdLbl.classList.remove('hidden');
+                        cdLbl.textContent = `${hornCooldown.toFixed(1)}s`;
+                    } else {
+                        cdLbl.classList.add('hidden');
+                    }
+                }
+            }
+            if (hornRingTimer > 0) {
+                hornRingTimer -= dt;
+                const prog = 1 - hornRingTimer / 0.55;
+                hornRing.scale.setScalar(1 + prog * 9);
+                hornRingMat.opacity = (1 - prog) * 0.75;
+            } else {
+                hornRingMat.opacity = 0;
+            }
+
+            // Active Timers
+            if (comboTimer > 0) {
+                comboTimer -= dt;
+                if (comboTimer <= 0) combo = 1;
+            }
+            if (feverMode) {
+                feverTimer -= dt;
+                feverMeter = (feverTimer / 8.0) * 100;
+                feverAuraMat.opacity = 0.55 + Math.sin(elapsed * 18) * 0.25;
+                feverAuraRing.rotation.z += 5 * dt;
+                if (Math.random() < 0.5) {
+                    spawnParticle(playerX + (Math.random() - 0.5) * 1.1, 0.4, 0.9, (Math.random() - 0.5) * 3, 1.5, 4, Math.random() < 0.5 ? 0xfacc15 : 0x22d3ee, 0.3);
+                }
+                if (feverTimer <= 0) {
+                    feverMode = false;
+                    feverMeter = 0;
+                    feverAuraMat.opacity = 0;
+                    const fc = document.getElementById('fever-container');
+                    if (fc) fc.classList.remove('fever-glow');
+                    sound.startBeatLoop();
+                }
+            } else {
+                feverAuraMat.opacity = 0;
+            }
+            if (shieldTimer > 0) shieldTimer = Math.max(0, shieldTimer - dt);
+            if (magnetTimer > 0) magnetTimer = Math.max(0, magnetTimer - dt);
+            updateEffectPills();
+
+            // Steering, Slip, Pothole Spin & Airborne Physics
+            if (puddleSlipTimer > 0) puddleSlipTimer = Math.max(0, puddleSlipTimer - dt);
+            if (potholeSpinTimer > 0) potholeSpinTimer = Math.max(0, potholeSpinTimer - dt);
+
+            const handlingMult = currentModel.handlingMult * (1 + ((saveData.upgrades.handling || 1) - 1) * 0.08);
+            const slipFactor = puddleSlipTimer > 0 ? 0.38 : 1.0;
+            const yoloWobble = isYoloBoosting ? Math.sin(elapsed * 24) * 1.4 : 0;
+
+            const prevX = playerX;
+            playerX += ((targetX + yoloWobble) - playerX) * 13 * handlingMult * slipFactor * dt;
+            const lateralVel = (playerX - prevX) / Math.max(dt, 0.001);
+
+            if (isAirborne) {
+                playerY += verticalVel * dt;
+                verticalVel -= 25 * dt;
+                if (isRolling) {
+                    barrelRollAngle += (barrelRollAngle >= 0 ? 1 : -1) * 9.5 * dt;
+                    if (Math.abs(barrelRollAngle) >= Math.PI * 2) {
+                        isRolling = false;
+                        barrelRollAngle = 0;
+                        stuntsAndFaresCount++;
+                        score += 400;
+                        runCoins += 25;
+                        sound.playPowerup();
+                        showToast('🌀 360° BARREL ROLL! +25 LE', 'text-cyan-300');
+                    }
+                }
+                if (playerY <= 0) {
+                    playerY = 0;
+                    verticalVel = 0;
+                    isAirborne = false;
+                    isRolling = false;
+                    barrelRollAngle = 0;
+                    suspensionBounce = 0.65;
+                }
+            } else {
+                suspensionBounce = Math.max(0, suspensionBounce - 3 * dt);
+            }
+
+            playerGroup.position.set(playerX, playerY, 0);
+            tuktukBodyGroup.position.y = Math.sin(elapsed * 22) * 0.025 - suspensionBounce * 0.25;
+            tuktukBodyGroup.rotation.y = potholeSpinTimer > 0 ? Math.sin(potholeSpinTimer * 18) * 0.65 : (isBraking ? lateralVel * 0.04 : 0);
+            tuktukBodyGroup.rotation.z = (-lateralVel * 0.045) + barrelRollAngle;
+            wheels.forEach(w => { w.rotation.x -= dz * 0.65; });
+
+            if (isBraking && Math.abs(lateralVel) > 1.2 && !isAirborne) {
+                sound.playDriftScreech();
+                spawnParticle(playerX - 0.6, 0.15, 0.8, (Math.random() - 0.5) * 2, 1.2, 3, 0xf97316, 0.25);
+                spawnParticle(playerX + 0.6, 0.15, 0.8, (Math.random() - 0.5) * 2, 1.2, 3, 0xfacc15, 0.25);
+            }
+            if ((isBoosting || isYoloBoosting) && boostFuel > 1) {
+                spawnParticle(playerX, 0.35, 1.15, (Math.random() - 0.5) * 1.5, 0.8, 5, isYoloBoosting ? 0xef4444 : 0x38bdf8, 0.22);
+            }
+
+            // Scroll Road, Landmarks, Raml Tram & Scenery
+            roadMarkers.forEach(m => {
+                m.position.z += dz;
+                if (m.position.z > 24) m.position.z -= 360;
+            });
+            sceneryProps.forEach(p => {
+                p.position.z += dz;
+                if (p.position.z > 24) p.position.z -= 360;
+            });
+            adSignMeshes.forEach(item => {
+                item.group.position.z += dz;
+                if (item.group.position.z > 24) item.group.position.z -= 300;
+            });
+            sailboats.forEach((boat, idx) => {
+                boat.position.z += (dz * 0.45 + (3 + idx) * dt);
+                boat.position.y = -0.55 + Math.sin(elapsed * 2 + idx) * 0.14;
+                if (boat.position.z > 30) boat.position.z = -280;
+            });
+            stanleyBridge.position.z += dz;
+            if (stanleyBridge.position.z > 30) stanleyBridge.position.z = -310;
+            bibliotheca.position.z += dz;
+            if (bibliotheca.position.z > 35) bibliotheca.position.z = -290;
+            ramlTram.position.z += (dz + 14 * dt);
+            if (ramlTram.position.z > 35) ramlTram.position.z = -260;
+
+            // Spawners (much tighter traffic wave intervals as distance increases)
+            spawnTimer -= dt;
+            if (spawnTimer <= 0) {
+                spawnTrafficWave();
+                spawnTimer = Math.max(0.24, 1.18 - distance * 0.00048 - heatLevel * 0.05);
+            }
+
+            coinSpawnTimer -= dt;
+            if (coinSpawnTimer <= 0) {
+                spawnCoinLine();
+                coinSpawnTimer = 2.6;
+            }
+
+            if (!hasPassenger) {
+                passengerSpawnTimer -= dt;
+                if (passengerSpawnTimer <= 0) {
+                    spawnPassengerPickup();
+                    passengerSpawnTimer = 14;
+                }
+            } else {
+                passengerTimeLeft -= dt;
+                const pTimerEl = document.getElementById('passenger-timer');
+                if (pTimerEl) pTimerEl.textContent = `${Math.max(0, Math.ceil(passengerTimeLeft))}s`;
+                if (!passengerDropoffSpawned && passengerTimeLeft < 11) {
+                    spawnDropoffZone();
+                }
+                if (passengerTimeLeft <= 0) {
+                    hasPassenger = false;
+                    passengerDropoffSpawned = false;
+                    document.getElementById('passenger-hud').classList.add('hidden');
+                    showToast('😤 Passenger jumped out! Too slow!', 'text-rose-400');
+                }
+            }
+
+            // Dynamic Street Events (trigger more frequently as distance grows)
+            if (!activeEvent) {
+                nextEventTimer -= dt;
+                if (nextEventTimer <= 0) {
+                    startRandomDynamicEvent();
+                    nextEventTimer = Math.max(13, 30 - distance * 0.004);
+                }
+            } else if (activeEvent.type === 'kameen') {
+                activeEvent.zPos += dz;
+                activeEvent.group.position.z = activeEvent.zPos;
+                const evBar = document.getElementById('event-progress-bar');
+                if (evBar) evBar.style.width = `${Math.max(0, Math.min(100, (-activeEvent.zPos / 165) * 100))}%`;
+
+                if (!activeEvent.resolved && activeEvent.zPos > 1.5) {
+                    activeEvent.resolved = true;
+                    const isPoliceTukTuk = currentModel.id === 'police';
+                    if (isPoliceTukTuk || currentLane === activeEvent.openLane || isAirborne || feverMode) {
+                        runCoins += 60;
+                        score += 500;
+                        stuntsAndFaresCount++;
+                        sound.playPowerup();
+                        showToast(isPoliceTukTuk ? '🚓 POLICE ESCORT PASS! +60 LE' : '🚨 KAMEEN EVADED! +60 LE', 'text-emerald-300');
+                    } else if (shieldTimer > 0) {
+                        shieldTimer = 0;
+                        showToast('🧿 Khamsa Shield cleared the checkpoint!', 'text-cyan-300');
+                    } else {
+                        triggerGameOver();
+                        return;
+                    }
+                }
+                if (activeEvent && activeEvent.zPos > 18) clearEventObjects();
+            } else if (activeEvent.type === 'pedestrians') {
+                activeEvent.group.position.z += dz;
+                activeEvent.group.position.x += Math.sin(elapsed * 3.5) * 3.5 * dt;
+                if (Math.abs(activeEvent.group.position.z) < 1.3 && Math.abs(activeEvent.group.position.x - playerX) < 1.75 && !isAirborne) {
+                    if (feverMode) {
+                        clearEventObjects();
+                    } else if (shieldTimer > 0) {
+                        shieldTimer = 0;
+                        showToast('🧿 Khamsa Shield protected you!', 'text-cyan-300');
+                        clearEventObjects();
+                    } else {
+                        triggerGameOver();
+                        return;
+                    }
+                } else if (activeEvent.group.position.z > 16) {
+                    clearEventObjects();
+                }
+            } else if (activeEvent.type === 'football') {
+                activeEvent.group.position.z += dz;
+                activeEvent.group.position.y = Math.abs(Math.sin(elapsed * 12)) * 0.35;
+                if (Math.abs(activeEvent.group.position.z) < 2.2 && Math.abs(activeEvent.group.position.x - playerX) < 1.4 && !isAirborne) {
+                    if (feverMode) {
+                        clearEventObjects();
+                    } else if (shieldTimer > 0) {
+                        shieldTimer = 0;
+                        showToast('🧿 Khamsa Shield parted the crowd!', 'text-cyan-300');
+                        clearEventObjects();
+                    } else {
+                        triggerGameOver();
+                        return;
+                    }
+                } else if (activeEvent.group.position.z > 16) {
+                    clearEventObjects();
+                }
+            }
+
+            // Update Obstacles & Hazards
+            const playerHalfW = 0.64;
+            const playerHalfD = 1.05;
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                const relSpeed = currentSpeed - (obs.userData.speedOffset || 0);
+                obs.position.z += relSpeed * dt;
+
+                // Aggressive Taxi lane-change at higher distances
+                if (obs.userData.type === 'taxi' && obs.userData.canSwerve) {
+                    if (!obs.userData.swerved && obs.position.z > -68 && obs.position.z < -42) {
+                        obs.userData.swerved = true;
+                        const curIdx = LANES.reduce((best, lx, idx) => Math.abs(lx - obs.position.x) < Math.abs(LANES[best] - obs.position.x) ? idx : best, 1);
+                        const nextIdx = curIdx === 1 ? (Math.random() < 0.5 ? 0 : 2) : 1;
+                        obs.userData.targetLaneX = LANES[nextIdx];
+                    }
+                    if (obs.userData.targetLaneX !== null) {
+                        obs.position.x += (obs.userData.targetLaneX - obs.position.x) * 4.5 * dt;
+                    }
+                }
+
+                // Faster, wider motorcycle weaving as distance scales
+                if (obs.userData.type === 'motorcycle') {
+                    const weaveAmp = Math.min(3.4, 1.5 + distance * 0.0006);
+                    const weaveFreq = Math.min(6.5, 3.8 + distance * 0.0007);
+                    obs.position.x += Math.sin(elapsed * weaveFreq + obs.userData.weavePhase) * weaveAmp * dt;
+                    obs.position.x = Math.max(-3.6, Math.min(3.6, obs.position.x));
+                }
+
+                if (obs.position.z > 18) {
+                    scene.remove(obs);
+                    obstacles.splice(i, 1);
+                    continue;
+                }
+
+                const dx = Math.abs(obs.position.x - playerX);
+                const dzObs = Math.abs(obs.position.z);
+
+                // Near Miss Detection
+                if (!obs.userData.nearMissed && obs.userData.type !== 'puddle' && obs.userData.type !== 'pothole' && obs.userData.type !== 'matab' &&
+                    obs.position.z > 0.5 && obs.position.z < 3.5 && dx < 2.25 && dx > (playerHalfW + obs.userData.halfW) * 0.85) {
+                    obs.userData.nearMissed = true;
+                    nearMissCount++;
+                    combo = Math.min(8, combo + 1);
+                    comboTimer = 4.0;
+                    const nearMissCash = 5 * combo;
+                    runCoins += nearMissCash;
+                    score += 120 * combo;
+                    addFever(18);
+                    advanceMission('nearmiss', 1);
+                    slowMoTimer = 0.14;
+                    sound.playNearMiss();
+                    const shout = NPC_SHOUTS[Math.floor(Math.random() * NPC_SHOUTS.length)];
+                    showToast(`⚡ NEAR MISS +${nearMissCash} LE! ${shout}`, 'text-cyan-300');
+                }
+
+                // Collision Detection
+                if (dx < (playerHalfW + obs.userData.halfW) && dzObs < (playerHalfD + obs.userData.halfD)) {
+                    if (obs.userData.type === 'puddle') {
+                        if (puddleSlipTimer <= 0 && !isAirborne) {
+                            puddleSlipTimer = 2.0;
+                            spawnParticle(playerX, 0.3, 0.2, (Math.random() - 0.5) * 5, 3, 2, 0x38bdf8, 0.35);
+                            showToast('🌊 WATER PUDDLE! LOW TRACTION!', 'text-sky-300');
+                        }
+                        continue;
+                    }
+                    if (obs.userData.type === 'pothole') {
+                        if (!obs.userData.triggered && !isAirborne) {
+                            obs.userData.triggered = true;
+                            isAirborne = true;
+                            verticalVel = 9.5;
+                            potholeSpinTimer = 0.75;
+                            shakeIntensity = 0.45;
+                            sound.playSwoosh();
+                            if (hasPassenger && Math.random() < 0.65) {
+                                showToast(PASSENGER_COMPLAINTS[Math.floor(Math.random() * PASSENGER_COMPLAINTS.length)], 'text-amber-300');
+                            } else {
+                                showToast('🕳️ POTHOLE HIT! HOLD ON!', 'text-orange-300');
+                            }
+                        }
+                        continue;
+                    }
+                    if (obs.userData.type === 'matab') {
+                        if (!obs.userData.triggered && !isAirborne) {
+                            obs.userData.triggered = true;
+                            isAirborne = true;
+                            verticalVel = 11.5;
+                            sound.playSwoosh();
+                            addFever(14);
+                            advanceMission('jumps', 1);
+                            showToast('🛫 MATAB JUMP! +100 PTS', 'text-amber-300');
+                        }
+                        continue;
+                    }
+                    if (obs.userData.type === 'ramptruck') {
+                        if (!obs.userData.launched) {
+                            obs.userData.launched = true;
+                            isAirborne = true;
+                            verticalVel = 18.5;
+                            stuntsAndFaresCount++;
+                            addFever(22);
+                            advanceMission('jumps', 1);
+                            sound.playSwoosh();
+                            showToast('🚀 STUNT RAMP LAUNCH! Press ◀/▶ to Barrel Roll!', 'text-cyan-300');
+                        }
+                        continue;
+                    }
+
+                    // Airborne clearance over traffic
+                    if (playerY > 1.2) continue;
+
+                    // Fever Mode smashes traffic cleanly
+                    if (feverMode) {
+                        spawnImpactExplosion(obs.position.x, 1.0, obs.position.z, 0xfacc15);
+                        sound.playCrash();
+                        score += 250;
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                        continue;
+                    }
+
+                    if (shieldTimer > 0) {
+                        shieldTimer = 0;
+                        spawnImpactExplosion(obs.position.x, 1.0, obs.position.z, 0x38bdf8);
+                        shakeIntensity = 0.55;
+                        sound.playCrash();
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                        showToast('🧿 KHAMSA SHIELD ABSORBED CRASH!', 'text-cyan-300');
+                        continue;
+                    }
+
+                    triggerGameOver();
+                    return;
+                }
+            }
+
+            // Update Coins & Powerups
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const c = collectibles[i];
+                c.position.z += dz;
+                c.rotation.y += 3.5 * dt;
+
+                if (magnetTimer > 0 && c.userData.type === 'coin' && c.position.z > -32) {
+                    c.position.x += (playerX - c.position.x) * 9 * dt;
+                    c.position.z += (0 - c.position.z) * 5 * dt;
+                }
+
+                if (c.position.z > 14) {
+                    scene.remove(c);
+                    collectibles.splice(i, 1);
+                    continue;
+                }
+
+                if (Math.abs(c.position.x - playerX) < 1.25 && Math.abs(c.position.z) < 1.45) {
+                    const durationBonus = ((saveData.upgrades.magnetPower || 1) - 1) * 3.0;
+                    if (c.userData.type === 'coin') {
+                        const gained = 2 * combo;
+                        runCoins += gained;
+                        score += 50 * combo;
+                        addFever(6);
+                        advanceMission('coins', gained);
+                        sound.playCoin(combo);
+                    } else if (c.userData.type === 'shai') {
+                        boostFuel = 100;
+                        addFever(25);
+                        sound.playPowerup();
+                        showToast('🫖 HOT SHAI TEA! FULL NITRO!', 'text-amber-300');
+                    } else if (c.userData.type === 'magnet') {
+                        magnetTimer = 10.0 + durationBonus;
+                        sound.playPowerup();
+                        showToast('🧲 COIN MAGNET ACTIVE!', 'text-purple-300');
+                    } else if (c.userData.type === 'shield') {
+                        shieldTimer = 12.0 + durationBonus;
+                        sound.playPowerup();
+                        showToast('🧿 BLUE KHAMSA SHIELD!', 'text-cyan-300');
+                    }
+                    scene.remove(c);
+                    collectibles.splice(i, 1);
+                }
+            }
+
+            // Update Passenger Pickup & Drop-off Zones
+            for (let i = passengerZones.length - 1; i >= 0; i--) {
+                const pz = passengerZones[i];
+                pz.position.z += dz;
+                if (!hasPassenger && Math.abs(pz.position.x - playerX) < 1.65 && Math.abs(pz.position.z) < 2.2) {
+                    hasPassenger = true;
+                    passengerDropoffSpawned = false;
+                    passengerTimeLeft = Math.max(12, Math.round(19 - distance * 0.0018));
+                    const names = ['Aunty Samira', 'Uncle Bayoumi', 'Kaptin Zizo', 'Mona & Kids'];
+                    passengerName = names[Math.floor(Math.random() * names.length)];
+                    document.getElementById('passenger-label').textContent = `${passengerName} Onboard`;
+                    document.getElementById('passenger-hud').classList.remove('hidden');
+                    sound.playPowerup();
+                    showToast(`🙋‍♂️ ${passengerName} hopped in! Watch for Gold Drop-off!`, 'text-emerald-300');
+                    scene.remove(pz);
+                    passengerZones.splice(i, 1);
+                    continue;
+                }
+                if (pz.position.z > 14) {
+                    scene.remove(pz);
+                    passengerZones.splice(i, 1);
+                }
+            }
+
+            for (let i = dropoffZones.length - 1; i >= 0; i--) {
+                const dzMesh = dropoffZones[i];
+                dzMesh.position.z += dz;
+                if (hasPassenger && Math.abs(dzMesh.position.x - playerX) < 1.85 && Math.abs(dzMesh.position.z) < 2.6) {
+                    const { current } = getCurrentOstaRank();
+                    const taxiMult = currentModel.id === 'taxi' ? 1.35 : 1.0;
+                    const fare = Math.round((65 + passengerTimeLeft * 3) * taxiMult * (1 + current.tipBonus));
+                    runCoins += fare;
+                    score += 650;
+                    stuntsAndFaresCount++;
+                    hasPassenger = false;
+                    passengerDropoffSpawned = false;
+                    document.getElementById('passenger-hud').classList.add('hidden');
+                    addFever(25);
+                    sound.playPowerup();
+                    showToast(`✅ ${passengerName} DROPPED OFF! +${fare} LE`, 'text-emerald-300');
+                    scene.remove(dzMesh);
+                    dropoffZones.splice(i, 1);
+                    continue;
+                }
+                if (dzMesh.position.z > 14) {
+                    scene.remove(dzMesh);
+                    dropoffZones.splice(i, 1);
+                }
+            }
+
+            // Update Particles
+            for (let i = activeParticles.length - 1; i >= 0; i--) {
+                const p = activeParticles[i];
+                p.userData.life -= dt;
+                p.position.x += p.userData.vx * dt;
+                p.position.y += p.userData.vy * dt;
+                p.position.z += p.userData.vz * dt;
+                p.userData.vy -= 18 * dt;
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    activeParticles.splice(i, 1);
+                }
+            }
+
+            // Dynamic FOV Boost Kick & Camera Modes
+            const targetFov = (isYoloBoosting || feverMode) ? 74 : (isBoosting ? 69 : 62);
+            if (Math.abs(camera.fov - targetFov) > 0.1) {
+                camera.fov += (targetFov - camera.fov) * 7 * dt;
+                camera.updateProjectionMatrix();
+            }
+
+            shakeIntensity = Math.max(0, shakeIntensity - 1.8 * dt);
+            const sx = (Math.random() - 0.5) * shakeIntensity;
+            const sy = (Math.random() - 0.5) * shakeIntensity;
+
+            if (cameraModeIdx === 0) {
+                camera.position.lerp(new THREE.Vector3(playerX * 0.65 + sx, 4.4 + playerY * 0.5 + sy, 8.6), 9 * dt);
+                camera.lookAt(playerX * 0.4, 1.2 + playerY * 0.4, -14);
+            } else if (cameraModeIdx === 1) {
+                camera.position.lerp(new THREE.Vector3(playerX * 0.85 + sx, 2.7 + playerY * 0.6 + sy, 5.2), 11 * dt);
+                camera.lookAt(playerX * 0.6, 1.0 + playerY * 0.5, -18);
+            } else if (cameraModeIdx === 2) {
+                camera.position.set(playerX + sx, 1.35 + playerY + sy, -0.45);
+                camera.lookAt(playerX, 1.15 + playerY, -24);
+            } else {
+                camera.position.lerp(new THREE.Vector3(playerX * 0.4 + sx, 11.5 + sy, 12.5), 7 * dt);
+                camera.lookAt(0, 0.5, -16);
+            }
+
+            // Update HUD Readouts
+            const hudDistEl = document.getElementById('hud-distance');
+            const hudCoinsEl = document.getElementById('hud-coins');
+            const hudDistrictEl = document.getElementById('hud-district');
+            const hudSpeedEl = document.getElementById('hud-speed');
+            const feverBarEl = document.getElementById('fever-bar');
+            const nitroBarEl = document.getElementById('nitro-bar');
+            const nitroPctEl = document.getElementById('nitro-pct');
+            const nitroBarMobEl = document.getElementById('nitro-bar-mobile');
+            const nitroPctMobEl = document.getElementById('nitro-pct-mobile');
+
+            const nitroRounded = Math.round(boostFuel);
+            if (hudDistEl) hudDistEl.textContent = `${Math.floor(distance)} m`;
+            if (hudCoinsEl) hudCoinsEl.textContent = `${runCoins}`;
+            if (hudDistrictEl) hudDistrictEl.textContent = DISTRICTS[currentDistrictIdx].name;
+            if (hudSpeedEl) hudSpeedEl.textContent = `${Math.round(currentSpeed * 2.2)} km/h`;
+            if (feverBarEl) feverBarEl.style.width = `${feverMeter}%`;
+            if (nitroBarEl) nitroBarEl.style.width = `${nitroRounded}%`;
+            if (nitroPctEl) nitroPctEl.textContent = `${nitroRounded}%`;
+            if (nitroBarMobEl) nitroBarMobEl.style.width = `${nitroRounded}%`;
+            if (nitroPctMobEl) nitroPctMobEl.textContent = `${nitroRounded}%`;
+
+            const comboBadge = document.getElementById('combo-badge');
+            if (comboBadge) {
+                if (combo > 1) {
+                    comboBadge.classList.remove('hidden');
+                    comboBadge.textContent = `x${combo} COMBO`;
+                } else {
+                    comboBadge.classList.add('hidden');
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
